@@ -7,94 +7,155 @@ import { createClient } from "@/lib/supabase/client" // Using client for admin a
 // Actually, `createClient` from `@/lib/supabase/server` uses cookies. 
 // We need `createClient` from `@supabase/supabase-js` with the service key.
 
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
-import { sendAlert } from '@/lib/notifications/dispatcher'
+import { createSupabaseAdmin } from "@/lib/supabase/admin"
+import { sendAlert } from "@/lib/notifications/dispatcher"
 
-// Mock environment variables for illustration if they aren't in process.env
-// const SUBS_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
-// const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-// Fallback to "simulated" job if no service key (local dev without env)
-// But real implementation needs strict auth.
-// const supabaseAdmin = createSupabaseClient(SUBS_URL, SERVICE_KEY || 'mock-key-for-build')
-
-// Helper to get admin client lazily to avoid build errors if env vars missing
-function getAdminClient() {
-    const SUBS_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
-    const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder-key'
-    return createSupabaseClient(SUBS_URL, SERVICE_KEY)
-}
-
+// [BETA] Hardened Price Tracker Job
+// 1. Uses Secure Admin Client (Throws if no key)
+// 2. Uses Cursor Pagination (updated_at, id) for stability
+// 3. NO RANDOM PRICES in Beta (Stub Logic)
 
 export async function runPriceTrackingJob() {
-    console.log('[JOB] Starting Price Tracking...')
-    const supabaseAdmin = getAdminClient()
+    const JOB_ID = `job_${Date.now()}`
 
-    // Safety: Max execution blocks
+    // 0. Safety Kill Switch
+    if (process.env.ENABLE_JOBS === 'false' || process.env.ENABLE_PRICE_TRACKER === 'false') {
+        console.log(`[JOB:${JOB_ID}] Price Tracker disabled (ENABLE_PRICE_TRACKER=false).`)
+        return { processed: 0 }
+    }
+
+    // 1. Setup
+    console.log(`[JOB:${JOB_ID}] START Price Tracker`)
+    const supabaseAdmin = createSupabaseAdmin()
+
+    // Configuration
     const MAX_BATCHES = 10
-    const BATCH_SIZE = 100 // Process 100 at a time
+    const BATCH_SIZE = 100
+    const MAX_TIME_MS = 45000 // 45s (Safe buffer)
+    const startTime = Date.now()
 
     let processedCount = 0
-    let lastId = '00000000-0000-0000-0000-000000000000' // UUID min
+    let changesCount = 0
+    let cursorUpdatedAt = '1970-01-01T00:00:00.000Z'
+    let cursorId = '00000000-0000-0000-0000-000000000000'
 
-    // Loop for pagination
-    for (let i = 0; i < MAX_BATCHES; i++) {
-        // Fetch next batch of active offers > lastId
-        const { data: offers } = await supabaseAdmin
-            .from('offers')
-            .select('id, price, freight')
-            .eq('is_available', true)
-            .gt('id', lastId)
-            .order('id', { ascending: true })
-            .limit(BATCH_SIZE)
-
-        if (!offers || offers.length === 0) {
-            console.log('[JOB] No more offers to process.')
-            break;
-        }
-
-        // Process Batch
-        for (const offer of offers) {
-            // Simulate Price Fluctuation (-10% to +10%)
-            const fluctuation = 1 + (Math.random() * 0.2 - 0.1)
-            const newPrice = Number((offer.price * fluctuation).toFixed(2))
-
-            // Update Offer
-            await supabaseAdmin
-                .from('offers')
-                .update({ price: newPrice, updated_at: new Date().toISOString() })
-                .eq('id', offer.id)
-
-            // Record History
-            await supabaseAdmin
-                .from('offer_price_history')
-                .insert({
-                    offer_id: offer.id,
-                    price: newPrice,
-                    freight: offer.freight
-                })
-
-            // Only log every 10th update to avoid spamming logs in prod
-            if (processedCount % 10 === 0) {
-                console.log(`[JOB] Updated Offer ${offer.id}: R$ ${offer.price} -> R$ ${newPrice}`)
+    try {
+        for (let i = 0; i < MAX_BATCHES; i++) {
+            // Time Guard
+            const duration = Date.now() - startTime
+            if (duration > MAX_TIME_MS) {
+                console.warn(`[JOB:${JOB_ID}] TIME_GUARD_BREAK after ${duration}ms. Stopping.`)
+                break;
             }
+
+            console.log(`[JOB:${JOB_ID}] Batch ${i + 1}/${MAX_BATCHES} Cursor(updated=${cursorUpdatedAt}, id=${cursorId})...`)
+
+            // 2. Fetch Batch (Keyset Pagination)
+            const { data: offers, error } = await supabaseAdmin
+                .from('offers')
+                .select('id, price, freight, updated_at, url')
+                .eq('is_available', true)
+                // Keyset: (updated_at > cursor) OR (updated_at = cursor AND id > cursorId)
+                .or(`updated_at.gt.${cursorUpdatedAt},and(updated_at.eq.${cursorUpdatedAt},id.gt.${cursorId})`)
+                .order('updated_at', { ascending: true })
+                .order('id', { ascending: true })
+                .limit(BATCH_SIZE)
+
+            if (error) {
+                console.error(`[JOB:${JOB_ID}] DB Error:`, error)
+                throw error
+            }
+
+            if (!offers || offers.length === 0) {
+                console.log(`[JOB:${JOB_ID}] No more offers pending update.`)
+                break;
+            }
+
+            // 3. Process Batch
+            for (const offer of offers) {
+                // Check Price (Stub or Demo Random)
+                const newPrice = await checkExternalPriceMock(offer.price)
+                const now = new Date().toISOString()
+
+                if (newPrice !== offer.price) {
+                    // Actual Change
+                    await supabaseAdmin
+                        .from('offers')
+                        .update({ price: newPrice, updated_at: now })
+                        .eq('id', offer.id)
+
+                    // Record History
+                    await supabaseAdmin
+                        .from('offer_price_history')
+                        .insert({
+                            offer_id: offer.id,
+                            price: newPrice,
+                            freight: offer.freight
+                        })
+
+                    changesCount++
+                } else {
+                    // Stable: Just bump timestamp to rotate in queue
+                    await supabaseAdmin
+                        .from('offers')
+                        .update({ updated_at: now })
+                        .eq('id', offer.id)
+                }
+            }
+
+            processedCount += offers.length
+
+            // Update Cursor
+            const lastItem = offers[offers.length - 1]
+            cursorUpdatedAt = lastItem.updated_at
+            cursorId = lastItem.id
+
+            if (offers.length < BATCH_SIZE) break;
         }
-
-        processedCount += offers.length
-        lastId = offers[offers.length - 1].id // Advance cursor
-
-        // Safety break if we processed less than batch size (end of table)
-        if (offers.length < BATCH_SIZE) break;
+    } catch (err) {
+        console.error(`[JOB:${JOB_ID}] FATAL ERROR:`, err)
+        // Sentry.captureException(err) // If Sentry were configured
     }
+
+    const totalDuration = Date.now() - startTime
+    console.log(`[JOB:${JOB_ID}] END. Processed=${processedCount}, Changes=${changesCount}, Duration=${totalDuration}ms`)
 
     return { processed: processedCount }
 }
 
+// [BETA] Strict Price Adapter Stub
+async function checkExternalPriceMock(currentPrice: number): Promise<number> {
+    // REQUIREMENT: Random price only if flag explicitly TRUE
+    const isDemoMode = process.env.ENABLE_DEMO_PRICE_FLUCTUATION === 'true'
+
+    if (!isDemoMode) {
+        // PRODUCTION/BETA: Stable. Never random.
+        // In real world, this would verify against external API.
+        return currentPrice
+    }
+
+    // DEMO MODE: 10% chance of fluctuation
+    const isStable = Math.random() > 0.1
+    if (isStable) return currentPrice
+
+    const change = (Math.random() * 0.10) - 0.05 // +/- 5%
+    return Number((currentPrice * (1 + change)).toFixed(2))
+}
+
 export async function runAlertEvaluatorJob() {
-    console.log('[JOB] Starting Alert Evaluator...')
-    const supabaseAdmin = getAdminClient()
+    // 0. Safety Kill Switch
+    if (process.env.ENABLE_JOBS === 'false' || process.env.ENABLE_ALERT_EVALUATOR === 'false') {
+        console.log('[JOB] Alert Evaluator is disabled via feature flag.')
+        return { alertsProcessed: 0, eventsTriggered: 0 }
+    }
+
+    console.log('[JOB] Starting Alert Evaluator (Beta Hardened)...')
+    const supabaseAdmin = createSupabaseAdmin()
 
     // 1. Fetch Active Alerts
+    // Optimization: Filter out alerts that triggered recently via SQL not possible efficiently without join.
+    // So we fetch active and filter in memory or join.
+    // For MVP Beta: Fetch active alerts is fine (low volume).
     const { data: alerts } = await supabaseAdmin
         .from('alerts')
         .select('*, products(name), wishes(title)')
@@ -105,7 +166,21 @@ export async function runAlertEvaluatorJob() {
     let triggeredCount = 0
 
     for (const alert of alerts) {
-        // Find best offer for the target (Wish or Product)
+        // [HARDENING] Cooldown Check
+        // Default cooldown: 60 minutes
+        const cooldownMinutes = alert.cooldown_minutes || 60
+        if (alert.last_triggered_at) {
+            const last = new Date(alert.last_triggered_at).getTime()
+            const now = new Date().getTime()
+            const diffMins = (now - last) / 60000
+
+            if (diffMins < cooldownMinutes) {
+                // In cooldown, skip
+                continue
+            }
+        }
+
+        // Find best offer for the target
         let query = supabaseAdmin
             .from('offers')
             .select('*, shops(name)')
@@ -116,9 +191,9 @@ export async function runAlertEvaluatorJob() {
         if (alert.product_id) {
             query = query.eq('product_id', alert.product_id)
         } else if (alert.wish_id) {
-            // Complex: Need to find products linked to wish? 
-            // For MVP, simplified: Alert usually linked to Product directly or generic Wish search.
-            // Let's assume Alert->Product linkage is preferred or we skip Wish-only alerts for this v0 logic.
+            // Beta Limitation: Wish alerts supported?
+            // If logic complex, skip for stability.
+            // Let's assume unsupported for now to avoid errors.
             continue
         }
 
@@ -127,34 +202,62 @@ export async function runAlertEvaluatorJob() {
 
         if (!bestOffer) continue
 
-        // Check Condition
-        let triggered = false
+        // Check Trigger Condition
+        let shouldTrigger = false
         if (alert.type === 'price' && bestOffer.price <= alert.target_value) {
-            triggered = true
+            shouldTrigger = true
         }
 
-        if (triggered) {
-            // Check cooldown? Skip for MVP.
+        if (shouldTrigger) {
+            // [HARDENING] Deduplication Check
+            // Did we already send THIS specific offer recently?
+            // "Don't tell me about the same offer twice in a row"
+            // Check last event for this alert_id
+            const { data: lastEvent } = await supabaseAdmin
+                .from('alert_events')
+                .select('offer_id')
+                .eq('alert_id', alert.id)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single()
 
-            // Create Event
+            if (lastEvent && lastEvent.offer_id === bestOffer.id) {
+                // Same offer as last time. 
+                // Only re-trigger if price DROPPED further?
+                // For Beta stability: suppress duplicate offer alerts.
+                continue
+            }
+
+            // Create Event payload structure
             const payload = {
                 price: bestOffer.price,
                 shop: bestOffer.shops.name,
                 url: bestOffer.url
             }
 
-            await supabaseAdmin.from('alert_events').insert({
+            // DB Insert
+            const { error } = await supabaseAdmin.from('alert_events').insert({
                 alert_id: alert.id,
                 offer_id: bestOffer.id,
                 payload
             })
 
-            // Dispatch
-            await sendAlert('push', {
-                title: `Alerta de Preço: ${alert.products?.name || 'Item'}`,
-                body: `Preço atingiu R$ ${bestOffer.price}!`,
-                data: { url: bestOffer.url }
-            })
+            if (error) {
+                console.error('[JOB] Failed to insert alert event:', error)
+                continue
+            }
+
+            // Dispatch Notification
+            try {
+                await sendAlert('push', {
+                    title: `Alerta de Preço: ${alert.products?.name || 'Item'}`,
+                    body: `Preço atingiu R$ ${bestOffer.price}! (${bestOffer.shops.name})`,
+                    data: { url: bestOffer.url }
+                })
+            } catch (err) {
+                console.error('[JOB] Dispatch failed:', err)
+                // Consume error, don't crash job loop
+            }
 
             // Update Last Triggered
             await supabaseAdmin
