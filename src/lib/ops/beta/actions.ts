@@ -85,22 +85,25 @@ export async function revokeInvite(id: string) {
     if (error) return { error: error.message }
 
     await logOpsAction('REVOKE_INVITE', { inviteId: id })
+    // [FIX] Revalidate UI immediately
     revalidatePath('/ops/beta')
     return { success: true }
 }
 
-export async function toggleBetaPause(currentState: boolean) {
+export async function toggleBetaPause(nextState: boolean) {
     const admin = createSupabaseAdmin()
-    const newState = (!currentState).toString()
+    // [FIX] Explicit Deterministic Set (was toggle from stale state)
+    // We receive the DESIRED state (true=paused, false=open)
+    const valueToSet = nextState.toString()
 
     const { error } = await admin
         .from('app_config')
-        .update({ value: newState })
+        .update({ value: valueToSet })
         .eq('key', 'BETA_SIGNUPS_PAUSED')
 
     if (error) return { error: error.message }
 
-    await logOpsAction('TOGGLE_BETA_PAUSE', { newState })
+    await logOpsAction('TOGGLE_BETA_PAUSE', { newState: valueToSet })
     revalidatePath('/ops/beta')
     return { success: true }
 }

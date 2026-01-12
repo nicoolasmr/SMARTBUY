@@ -19,9 +19,12 @@ export default async function BetaOpsPage() {
         revalidatePath('/ops/beta')
     }
 
-    async function handleTogglePause() {
+    async function handleTogglePause(formData: FormData) {
         'use server'
-        await toggleBetaPause(status.isPaused)
+        // [FIX] Read next state explicitly from hidden input
+        const nextPausedRaw = formData.get('nextPaused')
+        const nextPaused = nextPausedRaw === 'true'
+        await toggleBetaPause(nextPaused)
         revalidatePath('/ops/beta')
     }
 
@@ -49,6 +52,8 @@ export default async function BetaOpsPage() {
                             </Badge>
                         </div>
                         <form action={handleTogglePause} className="mt-4">
+                            {/* [FIX] Pass explicit next state to prevent stale closures */}
+                            <input type="hidden" name="nextPaused" value={(!status.isPaused).toString()} />
                             <Button
                                 variant={status.isPaused ? "outline" : "destructive"}
                                 className="w-full"
@@ -142,6 +147,7 @@ export default async function BetaOpsPage() {
                                                 <form action={async () => {
                                                     'use server'
                                                     await revokeInvite(invite.id)
+                                                    revalidatePath('/ops/beta')
                                                 }}>
                                                     <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700">
                                                         Revoke
