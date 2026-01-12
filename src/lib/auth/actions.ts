@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 
 import { checkBetaCap, claimInvite, isBetaMode, validateInvite } from '@/lib/beta/gate'
+import { track } from '@/lib/analytics/track'
 
 const schema = z.object({
     email: z.string().email(),
@@ -14,7 +15,23 @@ const schema = z.object({
     inviteCode: z.string().optional(), // New field
 })
 
-// ... login function omitted ...
+export async function login(formData: FormData) {
+    const supabase = await createClient()
+
+    const data = {
+        email: formData.get('email') as string,
+        password: formData.get('password') as string,
+    }
+
+    const { error } = await supabase.auth.signInWithPassword(data)
+
+    if (error) {
+        return { error: error.message }
+    }
+
+    revalidatePath('/', 'layout')
+    redirect('/app')
+}
 
 export async function signup(formData: FormData) {
     const supabase = await createClient()

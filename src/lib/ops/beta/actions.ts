@@ -2,7 +2,6 @@
 
 import { createSupabaseAdmin } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
-import { crypto } from "next/dist/server/web/sandbox/polyfills" // Fallback or use standard Node crypto if available in runtime
 
 // Helper to generate short codes
 function generateCode(length: number = 6): string {

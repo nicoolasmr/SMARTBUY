@@ -12,7 +12,25 @@ The Ops Area (`/ops`) is the back-office for SmartBuy administrators and content
     - Search by Name or EAN.
     - (Future) Merge duplicates.
 
-### 2. Offer Management (`/ops/offers`)
+### 2. Beta Ops (`/ops/beta`) 🕹️
+
+**Control Tower for the Closed Beta.**
+
+### Features
+- **Status Monitor**: View current `BETA_MODE`, `PAUSED` state, and Active Households vs Cap (100).
+- **Invite Management**:
+  - **Generate**: Create bulk invites with notes (e.g. "Family", "Twitter").
+  - **Revoke**: Invalidate specific codes immediately. Re-validates UI instantly.
+- **Panic Button**:
+  - **STOP Signups**: Sets `BETA_SIGNUPS_PAUSED=true`. Blocks ALL new signups, even with valid invites. Use in case of overflow or technical issues.
+
+### Audit
+All actions on this page generate logs in `ops_audit_logs` with type:
+- `GENERATE_INVITES`
+- `REVOKE_INVITE`
+- `TOGGLE_BETA_PAUSE`
+
+### 3. Offer Management (`/ops/offers`)
 - **Purpose**: Oversee the pricing and availability data.
 - **Capabilities**:
     - View active offers.

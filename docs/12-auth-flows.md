@@ -5,7 +5,16 @@ SmartBuy enforces a strict "Onboarding Gate" architecture. No user can access th
 
 ## Flows
 
-### 1. Sign Up Logic
+### 1. Sign Up (Beta Gate)
+- **Input**: Email, Password, Name, **Invite Code**.
+- **Validation (Server-Side)**:
+  1. Checks if `BETA_MODE` is active.
+  2. Validates `Invite Code` (Exists, Active, Not Expired, Usage Limit).
+  3. Checks `Hard Cap` (Active Households < 100).
+  4. If all OK -> Creates Auth User + Claims Invite.
+- **Outcome**:
+  - Success: Redirect to `/onboarding/welcome`.
+  - Fail: Show specific error (e.g. "Cap Reached", "Invalid Code").
 1. User submits Sign Up form.
 2. Supabase Trigger `handle_new_user` fires:
    - Creates `public.profiles` entry with `onboarding_status = 'pending'`.
