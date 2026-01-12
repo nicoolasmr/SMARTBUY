@@ -25,43 +25,69 @@ function getAdminClient() {
     return createSupabaseClient(SUBS_URL, SERVICE_KEY)
 }
 
+
 export async function runPriceTrackingJob() {
     console.log('[JOB] Starting Price Tracking...')
     const supabaseAdmin = getAdminClient()
 
-    // 1. Fetch random active offers to "update" (Simulation)
-    const { data: offers } = await supabaseAdmin
-        .from('offers')
-        .select('*')
-        .eq('is_available', true)
-        .limit(5) // Process batch
+    // Safety: Max execution blocks
+    const MAX_BATCHES = 10
+    const BATCH_SIZE = 100 // Process 100 at a time
 
-    if (!offers) return { processed: 0 }
+    let processedCount = 0
+    let lastId = '00000000-0000-0000-0000-000000000000' // UUID min
 
-    for (const offer of offers) {
-        // Simulate Price Fluctuation (-10% to +10%)
-        const fluctuation = 1 + (Math.random() * 0.2 - 0.1)
-        const newPrice = Number((offer.price * fluctuation).toFixed(2))
-
-        // Update Offer
-        await supabaseAdmin
+    // Loop for pagination
+    for (let i = 0; i < MAX_BATCHES; i++) {
+        // Fetch next batch of active offers > lastId
+        const { data: offers } = await supabaseAdmin
             .from('offers')
-            .update({ price: newPrice, updated_at: new Date().toISOString() })
-            .eq('id', offer.id)
+            .select('id, price, freight')
+            .eq('is_available', true)
+            .gt('id', lastId)
+            .order('id', { ascending: true })
+            .limit(BATCH_SIZE)
 
-        // Record History
-        await supabaseAdmin
-            .from('offer_price_history')
-            .insert({
-                offer_id: offer.id,
-                price: newPrice,
-                freight: offer.freight
-            })
+        if (!offers || offers.length === 0) {
+            console.log('[JOB] No more offers to process.')
+            break;
+        }
 
-        console.log(`[JOB] Updated Offer ${offer.id}: R$ ${offer.price} -> R$ ${newPrice}`)
+        // Process Batch
+        for (const offer of offers) {
+            // Simulate Price Fluctuation (-10% to +10%)
+            const fluctuation = 1 + (Math.random() * 0.2 - 0.1)
+            const newPrice = Number((offer.price * fluctuation).toFixed(2))
+
+            // Update Offer
+            await supabaseAdmin
+                .from('offers')
+                .update({ price: newPrice, updated_at: new Date().toISOString() })
+                .eq('id', offer.id)
+
+            // Record History
+            await supabaseAdmin
+                .from('offer_price_history')
+                .insert({
+                    offer_id: offer.id,
+                    price: newPrice,
+                    freight: offer.freight
+                })
+
+            // Only log every 10th update to avoid spamming logs in prod
+            if (processedCount % 10 === 0) {
+                console.log(`[JOB] Updated Offer ${offer.id}: R$ ${offer.price} -> R$ ${newPrice}`)
+            }
+        }
+
+        processedCount += offers.length
+        lastId = offers[offers.length - 1].id // Advance cursor
+
+        // Safety break if we processed less than batch size (end of table)
+        if (offers.length < BATCH_SIZE) break;
     }
 
-    return { processed: offers.length }
+    return { processed: processedCount }
 }
 
 export async function runAlertEvaluatorJob() {

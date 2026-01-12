@@ -5,7 +5,6 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 
 // --- Schemas ---
-// Ops schemas can be stricter or handle more raw data
 
 const upsertProductSchema = z.object({
     id: z.string().uuid().optional(),
@@ -26,18 +25,25 @@ const upsertOfferSchema = z.object({
     is_available: z.boolean().default(true),
 })
 
-const createShopSchema = z.object({
-    name: z.string().min(1),
-    domain: z.string().optional(),
-})
-
 // --- Helpers ---
 
+async function logOpsAction(supabase: any, userId: string, action: string, entityType: string, entityId: string, payload: any) {
+    try {
+        await supabase.from('ops_audit_logs').insert({
+            ops_user_id: userId,
+            action_type: action,
+            entity_type: entityType,
+            entity_id: entityId,
+            payload
+        })
+    } catch (e) {
+        console.error('Failed to log ops action', e)
+        // Non-blocking error for log failure? Debateable. Ideally we want it to fail if log fails for Strict Audit.
+        // For Beta, we log error.
+    }
+}
+
 export async function checkOpsRole(supabase: any) {
-    // For MVP Sprint 4, we assume if we have a valid session we proceed.
-    // In strict prod, we'd check `auth.users` metadata or profile tables.
-    // The RLS enforced at DB level will actually Fail the write if the policy isn't met.
-    // So here we mostly just ensure we have a User.
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Unauthorized')
     return user
@@ -48,7 +54,7 @@ export async function checkOpsRole(supabase: any) {
 export async function upsertProduct(formData: FormData) {
     const supabase = await createClient()
     try {
-        await checkOpsRole(supabase)
+        const user = await checkOpsRole(supabase)
 
         const raw = {
             id: formData.get('id') || undefined,
@@ -59,10 +65,7 @@ export async function upsertProduct(formData: FormData) {
             // attributes hard to pass via FormData without parsing JSON string
         }
 
-        // Simple manual validation match schema if needed, or just let DB fail
-        // Using schema:
         const validated = upsertProductSchema.safeParse(raw)
-        // Note: zod schema expects exact types (e.g. string length). formData returns Request format (strings).
 
         if (!validated.success) {
             return { error: 'Validation failed', issues: validated.error.flatten() }
@@ -76,6 +79,9 @@ export async function upsertProduct(formData: FormData) {
 
         if (error) return { error: error.message }
 
+        // LOGGING
+        await logOpsAction(supabase, user.id, 'UPSERT_PRODUCT', 'product', data.id, validated.data)
+
         revalidatePath('/ops/catalog')
         return { data }
 
@@ -87,7 +93,7 @@ export async function upsertProduct(formData: FormData) {
 export async function upsertOffer(formData: FormData) {
     const supabase = await createClient()
     try {
-        await checkOpsRole(supabase)
+        const user = await checkOpsRole(supabase)
 
         const raw = {
             id: formData.get('id') || undefined,
@@ -104,22 +110,23 @@ export async function upsertOffer(formData: FormData) {
             return { error: 'Validation failed', issues: validated.error.flatten() }
         }
 
-        const { error } = await supabase
+        const { data: offer, error } = await supabase
             .from('offers')
             .upsert({ ...validated.data, updated_at: new Date().toISOString() })
+            .select()
+            .single()
 
         if (error) return { error: error.message }
 
         // Also Create History Entry!
-        // Get the new offer ID (if insert) or existing (if update).
-        // Since we upserted, we might not have the ID if we didn't select.
-        // Let's assume we passed ID or we need to fetch it? 
-        // Ideally upsert returns data.
+        await supabase.from('offer_price_history').insert({
+            offer_id: offer.id,
+            price: offer.price,
+            freight: offer.freight
+        })
 
-        // Refetch or select:
-        // Actually simpler:
-        // const { data: offer } = await supabase...upsert().select().single()
-        // ... await supabase.from('offer_price_history').insert({ offer_id: offer.id, price, freight })
+        // LOGGING
+        await logOpsAction(supabase, user.id, 'UPSERT_OFFER', 'offer', offer.id, validated.data)
 
         revalidatePath('/ops/offers')
         return { success: true }
@@ -132,9 +139,12 @@ export async function upsertOffer(formData: FormData) {
 export async function createShop(name: string, domain?: string) {
     const supabase = await createClient()
     try {
-        await checkOpsRole(supabase)
-        const { error } = await supabase.from('shops').insert({ name, domain })
+        const user = await checkOpsRole(supabase)
+        const { data, error } = await supabase.from('shops').insert({ name, domain }).select().single()
         if (error) return { error: error.message }
+
+        await logOpsAction(supabase, user.id, 'CREATE_SHOP', 'shop', data.id, { name, domain })
+
         return { success: true }
     } catch (e) { return { error: 'Unauthorized' } }
 }

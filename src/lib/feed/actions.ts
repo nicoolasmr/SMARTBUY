@@ -14,176 +14,133 @@ export type FeedItem = {
     missionId?: string
 }
 
+
 export async function getFeed(context?: { missionId?: string }) {
     const supabase = await createClient()
 
     // 1. Gather Context
     const activeHouseholdId = await getActiveHouseholdId(supabase)
-    let wishlistItems: any[] = []
-    let activeMissionItems: any[] = []
-    let homeListItems: any[] = []
+    if (!activeHouseholdId) return { data: [] }
 
-    const [profileRes, wishesRes] = await Promise.all([
+    // Parallel Fetching for JS-side Scoring Context
+    const [profileRes, homeListRes, missionItemsRes] = await Promise.all([
         getHouseholdProfile(),
-        getWishes()
+        supabase.from('home_list_items').select('product_id, next_suggested_at').eq('household_id', activeHouseholdId),
+        context?.missionId
+            ? supabase.from('mission_items').select('wish_id').eq('mission_id', context.missionId).not('wish_id', 'is', null)
+            : Promise.resolve({ data: [] })
     ])
 
     const profile = profileRes.data || {}
-    const wishes = wishesRes.data || [] // This is the original wishes, which is used later in the loop.
+    const homeListItems = homeListRes.data || []
+    const missionWishIds = (missionItemsRes.data || []).map((i: any) => i.wish_id)
 
-    // Fetch Mission Items if missionId is present
-    let missionWishIds: string[] = []
-    if (context?.missionId) {
-        const { data: mItems } = await supabase
-            .from('mission_items')
-            .select('wish_id')
-            .eq('mission_id', context.missionId)
-            .not('wish_id', 'is', null)
+    // 2. RPC Call - [Hardening] Use SQL to filter candidates and join data efficiently
+    const { data: candidates, error } = await supabase.rpc('fn_get_feed_candidates', { p_household_id: activeHouseholdId })
 
-        if (mItems) {
-            missionWishIds = mItems.map((i: any) => i.wish_id)
-        }
+    if (error) {
+        console.error('Feed RPC Error:', error)
+        // Fallback or empty? Empty for now, safety.
+        return { data: [] }
     }
 
-    // [NEW] Home List Fetch
-    if (activeHouseholdId) {
-        const { data: hList } = await supabase.from('home_list_items').select('product_id, next_suggested_at').eq('household_id', activeHouseholdId)
-        if (hList) homeListItems = hList
-    }
-
+    if (!candidates) return { data: [] }
 
     const feedItems: FeedItem[] = []
     const seenProductIds = new Set<string>()
 
-    // 2. Candidate Selection (Strategy: Wish-based)
-    for (const wish of wishes) {
-        // Simple fuzzy search based on wish title
-        // In a real engine, we'd use semantic search or embeddings.
-        const candidatesRes = await searchProducts(wish.title)
-        const candidates = candidatesRes.data || []
+    // 3. Scoring & Logic (JS Side - Keeping transparency)
+    for (const item of candidates as any[]) {
+        const product = item.product_data
 
-        for (const product of candidates) {
-            if (seenProductIds.has(product.id)) continue;
+        // Ensure bestOffer has the structure UI expects
+        // RPC returns standardized snake_case usually if raw, but here likely json properties if jsonb.
+        const bestOffer = item.best_offer_data
+        const riskData = item.risk_data
 
-            // Fetch offers for this product to check filters
-            const { data: offers, error } = await supabase
-                .from('offers')
-                .select('*, shops(*), offer_risk_scores(score, bucket, reasons)')
-                .eq('product_id', product.id)
-                .eq('is_available', true)
-                .order('price', { ascending: true }) // Best price first
+        // RPC returns JSON objects, keys are preserved as built in SQL jsonb_build_object.
+        // bestOffer: { id, price, shops: {...}, offer_risk_scores: {...} }
 
-            if (error || !offers || offers.length === 0) continue;
+        if (seenProductIds.has(product.id)) continue;
 
-            const bestOffer = offers[0]
-            const reasons: string[] = []
-            let isFiltered = false
+        const reasons: string[] = []
+        let score = 0
 
-            // 3. Hard Filters
+        // Derived from RPC columns
+        const wishTitle = item.wish_title
+        const wishUrgency = item.wish_urgency
+        const wishMinPrice = item.wish_min_price
+        const wishId = item.wish_id
 
-            // Filter: Budget (Global Monthly or Per Mission?)
-            // For v0, let's check individual item price vs "Budget Per Mission" if set.
-            if (profile.budget_per_mission && bestOffer.price > profile.budget_per_mission) {
-                // Skip this product, too expensive for a single item allow
-                continue;
+        // Score: Wish Match
+        score += 100
+        reasons.push(`Baseado no seu desejo "${wishTitle}"`)
+
+        // Score: Home List Logic
+        const homeItem = homeListItems.find((h: any) => h.product_id === product.id)
+        if (homeItem) {
+            const due = new Date(homeItem.next_suggested_at)
+            const today = new Date()
+            const diffTime = due.getTime() - today.getTime()
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+            if (diffDays <= 7) {
+                score += 150
+                reasons.push('restock')
             }
-
-            // Filter: Max Price from Wish
-            if (wish.max_price && bestOffer.price > wish.max_price) {
-                // But maybe another offer is cheaper? We already took bestOffer.
-                // So if best offer is bad, skip product.
-                continue;
-            }
-
-            // Filter: Blocked Stores
-            if (profile.blocked_stores && profile.blocked_stores.includes(bestOffer.shops.name)) {
-                // If best offer is from blocked store, check next best?
-                // For simplified v0, if best offer is blocked, we might skip or find next.
-                // Let's try to find first valid offer.
-                const validOffer = offers.find((o: any) => !profile.blocked_stores?.includes(o.shops.name))
-                if (!validOffer) continue; // No valid offers
-                // Swap bestOffer
-                // Note: We can't re-assign const bestOffer easily logic-wise without refactoring loop,
-                // but conceptually: use filteredOffers[0]
-            }
-
-            // 4. Ranking / Scoring (Deterministic)
-            let score = 0
-
-            // Score: Wish Match
-            score += 100
-            reasons.push(`Baseado no seu desejo "${wish.title}"`)
-
-            // [NEW] Home List Logic
-            const homeItem = homeListItems.find((h: any) => h.product_id === product.id)
-            if (homeItem) {
-                const due = new Date(homeItem.next_suggested_at)
-                const today = new Date()
-                const diffTime = due.getTime() - today.getTime()
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
-                if (diffDays <= 7) { // Due within week or late
-                    score += 150 // Strong boost
-                    reasons.push('restock')
-                }
-            }
-
-            // Score: Urgency
-            if (wish.urgency === 'high') score += 50
-            if (wish.urgency === 'medium') score += 20
-
-            // Score: Price vs Wish Target
-            if (wish.min_price && bestOffer.price <= wish.min_price) {
-                score += 30
-                reasons.push('Abaixo do seu preço alvo!')
-            }
-
-            // Score: Budget Check (Positive reinforcement)
-            if (profile.budget_per_mission && bestOffer.price < (profile.budget_per_mission * 0.5)) {
-                score += 10
-                reasons.push('Bem abaixo do seu limite de missão')
-            }
-
-            // Score: Mission Boost
-            if (context?.missionId && wish.id && missionWishIds.includes(wish.id)) {
-                score += 200 // Huge boost!
-                reasons.unshift('Parte da sua Missão Ativa')
-            }
-
-            // [NEW] Anti-Cilada Risk Penalty/Bonus
-            // Assumption: one risk score per offer (joined array or single object depending on relation 1:1)
-            // Supabase join usually returns array for 1:N or single object for 1:1 if configured?
-            // Let's handle array safer.
-            const riskData = Array.isArray(bestOffer.offer_risk_scores) ? bestOffer.offer_risk_scores[0] : bestOffer.offer_risk_scores
-
-            if (riskData) {
-                if (riskData.bucket === 'C') {
-                    score -= 500 // Nuke it ranking-wise
-                    reasons.push('⚠️ Risco de Cilada Detectado')
-                } else if (riskData.bucket === 'B') {
-                    score -= 50
-                    reasons.push('⚠️ Requer Atenção')
-                } else if (riskData.bucket === 'A') {
-                    score += 50
-                    reasons.push('✅ Oferta Segura')
-                }
-            }
-
-            // Final Push
-            feedItems.push({
-                type: 'product_recommendation',
-                product,
-                bestOffer: {
-                    ...bestOffer,
-                    risk: riskData // Attach for UI
-                },
-                reasons,
-                matchScore: score,
-                wishId: wish.id,
-                missionId: context?.missionId
-            })
-            seenProductIds.add(product.id)
         }
+
+        // Score: Urgency
+        if (wishUrgency === 'high') score += 50
+        if (wishUrgency === 'medium') score += 20
+
+        // Score: Price vs Wish Target
+        if (wishMinPrice && bestOffer.price <= wishMinPrice) {
+            score += 30
+            reasons.push('Abaixo do seu preço alvo!')
+        }
+
+        // Score: Budget Check (Positive reinforcement)
+        // Note: RPC did HARD filter on budget_per_mission. Here we do "Good Price" bonus.
+        if (profile.budget_per_mission && bestOffer.price < (profile.budget_per_mission * 0.5)) {
+            score += 10
+            reasons.push('Bem abaixo do seu limite de missão')
+        }
+
+        // Score: Mission Boost
+        if (context?.missionId && wishId && missionWishIds.includes(wishId)) {
+            score += 200
+            reasons.unshift('Parte da sua Missão Ativa')
+        }
+
+        // Score: Anti-Cilada Risk Penalty/Bonus
+        if (riskData) {
+            if (riskData.bucket === 'C') {
+                score -= 500
+                reasons.push('⚠️ Risco de Cilada Detectado')
+            } else if (riskData.bucket === 'B') {
+                score -= 50
+                reasons.push('⚠️ Requer Atenção')
+            } else if (riskData.bucket === 'A') {
+                score += 50
+                reasons.push('✅ Oferta Segura')
+            }
+        }
+
+        // Final Push
+        feedItems.push({
+            type: 'product_recommendation',
+            product,
+            bestOffer: {
+                ...bestOffer,
+                risk: riskData // Attach for UI compatibility
+            },
+            reasons,
+            matchScore: score,
+            wishId: wishId,
+            missionId: context?.missionId
+        })
+        seenProductIds.add(product.id)
     }
 
     // Sort by Match Score DESC
