@@ -1,5 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 
+// ⚠️ WARNING: DO NOT IMPORT IN CLIENT-SIDE CODE
+// This module uses SUPABASE_SERVICE_ROLE_KEY which must NEVER be exposed to the browser.
+// Use only in Server Actions, Route Handlers, or Background Jobs.
+
 /**
  * Creates a secure Supabase Admin client with Service Role privileges.
  * 

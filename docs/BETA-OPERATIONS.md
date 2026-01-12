@@ -20,6 +20,9 @@
   - `ENABLE_PRICE_TRACKER=true` (Specific).
   - `ENABLE_ALERT_EVALUATOR=true` (Specific).
   - `ENABLE_ANTI_CILADA=true` (Scoring Engine).
+  - **Security (Ops)**:
+    - `CRON_SECRET`: Required for all `/api/internal/jobs/*` calls.
+    - **Concurrency Locks**: Distributed lock (TTL 90s) prevents double execution.
 
 ## 2. Daily Routine (D+1) 🗓️
 
@@ -63,6 +66,18 @@
 ### Scenario C: Job Loop / Cost Spike
 1.  **Action**: Set `ENABLE_JOBS=false`.
 2.  **Fix**: Investigate logs. Deploy fix. Re-enable.
+
+### Scenario D: Manual Job Trigger (Secure)
+If a job needs to be run manually (e.g., after fix):
+```bash
+curl -X GET https://smartbuy.vercel.app/api/internal/jobs/price-tracker \
+  -H "x-cron-secret: [VALUE_FROM_VERCEL_ENV]"
+```
+
+### Scenario E: Viral Spike / Hard Cap Breach
+1.  **Symptom**: 105 households created (race condition leak).
+2.  **Action**: Go to `/ops/beta` -> Click **STOP Signups (Panic)**.
+3.  **Result**: `BETA_SIGNUPS_PAUSED=true`. No new accounts even with invites.
 
 ## 4. Escalation Runbook 🪜
 

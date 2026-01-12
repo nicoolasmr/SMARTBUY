@@ -15,12 +15,18 @@ export type FeedItem = {
 }
 
 
+import { track } from '@/lib/analytics/track'
+
 export async function getFeed(context?: { missionId?: string }) {
     const supabase = await createClient()
 
     // 1. Gather Context
     const activeHouseholdId = await getActiveHouseholdId(supabase)
     if (!activeHouseholdId) return { data: [] }
+
+    // [ANALYTICS]
+    // Fire & Forget
+    track('feed_viewed', { householdId: activeHouseholdId, payload: { missionId: context?.missionId } })
 
     // Parallel Fetching for JS-side Scoring Context
     const [profileRes, homeListRes, missionItemsRes] = await Promise.all([

@@ -1,0 +1,131 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: smartbuy-beta
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: smartbuy-secrets
+  namespace: smartbuy-beta
+type: Opaque
+stringData:
+  # THESE ARE PLACEHOLDERS. DO NOT COMMIT REAL VALUES.
+  NEXT_PUBLIC_SUPABASE_URL: "https://xyz.supabase.co"
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: "ey..."
+  SUPABASE_SERVICE_ROLE_KEY: "ey..."
+  CRON_SECRET: "change_me_to_random_hex"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smartbuy-web
+  namespace: smartbuy-beta
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: smartbuy-web
+  template:
+    metadata:
+      labels:
+        app: smartbuy-web
+    spec:
+      containers:
+      - name: web
+        image: ghcr.io/nicoolasmr/smartbuy:latest
+        ports:
+        - containerPort: 3000
+        envFrom:
+        - secretRef:
+            name: smartbuy-secrets
+        resources:
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: smartbuy-web
+  namespace: smartbuy-beta
+spec:
+  selector:
+    app: smartbuy-web
+  ports:
+  - port: 80
+    targetPort: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: smartbuy-ingress
+  namespace: smartbuy-beta
+spec:
+  rules:
+  - host: beta.smartbuy.app
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: smartbuy-web
+            port:
+              number: 80
+---
+# CronJob: Price Tracker (Calls Internal API safely)
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: price-tracker
+  namespace: smartbuy-beta
+spec:
+  schedule: "*/5 * * * *" # Every 5 mins
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: curler
+            image: curlimages/curl
+            args:
+            - /bin/sh
+            - -c
+            - 'curl -X GET http://smartbuy-web/api/internal/jobs/price-tracker -H "x-cron-secret: $CRON_SECRET"'
+            env:
+            - name: CRON_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: smartbuy-secrets
+                  key: CRON_SECRET
+          restartPolicy: OnFailure
+---
+# CronJob: Alert Evaluator
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: alert-evaluator
+  namespace: smartbuy-beta
+spec:
+  schedule: "*/10 * * * *" # Every 10 mins
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: curler
+            image: curlimages/curl
+            args:
+            - /bin/sh
+            - -c
+            - 'curl -X GET http://smartbuy-web/api/internal/jobs/alert-evaluator -H "x-cron-secret: $CRON_SECRET"'
+            env:
+            - name: CRON_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: smartbuy-secrets
+                  key: CRON_SECRET
+          restartPolicy: OnFailure

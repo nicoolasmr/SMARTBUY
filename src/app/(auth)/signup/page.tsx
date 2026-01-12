@@ -41,6 +41,16 @@ export default function SignupPage() {
           <div className="space-y-2">
             <Input name="password" type="password" placeholder="Senha" required />
           </div>
+          <div className="space-y-2 pt-2 border-t">
+            <p className="text-xs text-muted-foreground text-center mb-2">Beta Fechado</p>
+            <Input
+              name="inviteCode"
+              type="text"
+              placeholder="Código de Convite (Obrigatório)"
+              className="text-center font-mono uppercase tracking-widest placeholder:normal-case"
+              required
+            />
+          </div>
           {error && (
             <div className="text-sm text-destructive text-center">
               {error}
