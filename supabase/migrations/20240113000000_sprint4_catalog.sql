@@ -82,7 +82,7 @@ CREATE POLICY "Ops can insert products" ON public.products
         EXISTS (
             SELECT 1 FROM public.profiles 
             WHERE id = auth.uid() 
-            AND (app_metadata->>'role' = 'ops' OR app_metadata->>'role' = 'admin')
+            AND app_role IN ('ops', 'admin')
         )
     );
 
@@ -92,7 +92,7 @@ CREATE POLICY "Ops can update products" ON public.products
          EXISTS (
             SELECT 1 FROM public.profiles 
             WHERE id = auth.uid() 
-            AND (app_metadata->>'role' = 'ops' OR app_metadata->>'role' = 'admin')
+            AND app_role IN ('ops', 'admin')
         )
     );
 
@@ -107,7 +107,7 @@ CREATE POLICY "Ops can manage shops" ON public.shops
          EXISTS (
             SELECT 1 FROM public.profiles 
             WHERE id = auth.uid() 
-            AND (app_metadata->>'role' = 'ops' OR app_metadata->>'role' = 'admin')
+            AND app_role IN ('ops', 'admin')
         )
     );
 
@@ -122,7 +122,7 @@ CREATE POLICY "Ops can manage offers" ON public.offers
          EXISTS (
             SELECT 1 FROM public.profiles 
             WHERE id = auth.uid() 
-            AND (app_metadata->>'role' = 'ops' OR app_metadata->>'role' = 'admin')
+            AND app_role IN ('ops', 'admin')
         )
     );
 
@@ -134,7 +134,7 @@ CREATE POLICY "Ops read access for history" ON public.offer_price_history
          EXISTS (
             SELECT 1 FROM public.profiles 
             WHERE id = auth.uid() 
-            AND (app_metadata->>'role' = 'ops' OR app_metadata->>'role' = 'admin')
+            AND app_role IN ('ops', 'admin')
         )
     );
     
@@ -144,7 +144,7 @@ CREATE POLICY "Ops insert access for history" ON public.offer_price_history
          EXISTS (
             SELECT 1 FROM public.profiles 
             WHERE id = auth.uid() 
-            AND (app_metadata->>'role' = 'ops' OR app_metadata->>'role' = 'admin')
+            AND app_role IN ('ops', 'admin')
         )
     );
     

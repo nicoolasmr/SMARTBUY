@@ -16,9 +16,9 @@ CREATE INDEX IF NOT EXISTS idx_alerts_active
 ON public.alerts (is_active) 
 WHERE is_active = true;
 
--- Support for: deduplication check order('created_at', { ascending: false })
+-- Support for: deduplication check order('triggered_at', { ascending: false })
 CREATE INDEX IF NOT EXISTS idx_alert_events_dedupe 
-ON public.alert_events (alert_id, created_at DESC);
+ON public.alert_events (alert_id, triggered_at DESC);
 
 -- 3. Comments (Audit trail)
 COMMENT ON INDEX idx_offers_tracking_cursor IS 'Optimizes Price Tracker Job cursor pagination';

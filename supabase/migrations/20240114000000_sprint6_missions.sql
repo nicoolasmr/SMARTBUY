@@ -1,4 +1,8 @@
 -- Create missions table
+-- [SELF-HEALING] Cleanup
+DROP TABLE IF EXISTS public.mission_items CASCADE;
+DROP TABLE IF EXISTS public.missions CASCADE;
+
 CREATE TABLE public.missions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     household_id UUID NOT NULL REFERENCES public.households(id) ON DELETE CASCADE,
