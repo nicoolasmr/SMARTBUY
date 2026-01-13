@@ -5,7 +5,7 @@ import { z } from 'zod'
 
 // --- Schemas ---
 
-const productSchema = z.object({
+const _productSchema = z.object({
     name: z.string().min(1),
     brand: z.string().optional(),
     ean_normalized: z.string().min(8),

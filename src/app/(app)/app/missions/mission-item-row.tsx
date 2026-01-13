@@ -6,7 +6,13 @@ import { useTransition } from "react";
 import { cn } from "@/lib/utils";
 
 interface MissionItemProps {
-    item: any;
+    item: {
+        id: string
+        is_completed: boolean
+        title: string
+        wishes?: { title: string }
+        estimated_price?: number
+    }
 }
 
 export function MissionItemRow({ item }: MissionItemProps) {

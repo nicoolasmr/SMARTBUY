@@ -3,13 +3,21 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { revalidatePath } from "next/cache";
+// import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
 export default async function MissionsListPage() {
+    interface MissionSummary {
+        id: string
+        title: string
+        moment?: string
+        description?: string
+        budget_total?: number
+        is_active: boolean
+    }
     const res = await getMissions();
-    const missions = res.data || [];
+    const missions = (res.data || []) as unknown as MissionSummary[];
 
     async function create(formData: FormData) {
         'use server'
@@ -52,7 +60,7 @@ export default async function MissionsListPage() {
             </Card>
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {missions.map((mission: any) => (
+                {missions.map((mission) => (
                     <Link key={mission.id} href={`/app/missions/${mission.id}`}>
                         <Card className="p-6 h-full hover:shadow-md transition-shadow cursor-pointer flex flex-col justify-between">
                             <div className="space-y-2">

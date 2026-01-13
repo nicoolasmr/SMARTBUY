@@ -11,11 +11,24 @@ export default async function OpsAlertsPage() {
     const { count: totalEvents } = await supabase.from('alert_events').select('*', { count: 'exact', head: true });
 
     // Recent Events
-    const { data: events } = await supabase
+    // Define Interface locally
+    type AlertEvent = {
+        id: string
+        triggered_at: string
+        payload: { price: number }
+        alerts: {
+            target_value: number
+            products: { name: string }
+        }
+    }
+
+    const { data: eventsData } = await supabase
         .from('alert_events')
         .select('*, alerts(target_value, products(name))')
         .order('triggered_at', { ascending: false })
         .limit(10);
+
+    const events = (eventsData || []) as unknown as AlertEvent[]
 
     return (
         <div className="space-y-8">
@@ -40,7 +53,7 @@ export default async function OpsAlertsPage() {
                         <span>Produto</span>
                         <span>Preço Detectado</span>
                     </div>
-                    {events?.map((evt: any) => (
+                    {events?.map((evt) => (
                         <div key={evt.id} className="p-4 border-t grid grid-cols-3 text-sm">
                             <span>{new Date(evt.triggered_at).toLocaleString()}</span>
                             <span>{evt.alerts?.products?.name || 'Desconhecido'}</span>

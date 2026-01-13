@@ -13,7 +13,7 @@ function generateCode(length: number = 6): string {
     return result
 }
 
-async function logOpsAction(action: string, metadata: any) {
+async function logOpsAction(action: string, metadata: Record<string, unknown>) {
     const admin = createSupabaseAdmin()
     // Simple fire & forget or await
     await admin.from('ops_audit_logs').insert({
@@ -34,10 +34,10 @@ export async function getBetaStatus() {
     const cap = parseInt(config?.find(c => c.key === 'BETA_HOUSEHOLD_CAP')?.value || '100')
 
     // 2. Counts
-    const { data: households } = await admin.rpc('fn_beta_can_create_household') // Reusing RPC might not give count
+    // const { data: households } = await admin.rpc('fn_beta_can_create_household') // Reusing RPC might not give count
     // View
-    const { data: viewData, error: viewError } = await admin.from('view_beta_households_count').select('count').single()
-    const activeHouseholds = viewData?.count || 0
+    const { count: totalViews } = await admin.from('view_beta_households_count').select('count', { count: 'exact', head: true })
+    const activeHouseholds = totalViews || 0
 
     return { betaMode, isPaused, cap, activeHouseholds }
 }

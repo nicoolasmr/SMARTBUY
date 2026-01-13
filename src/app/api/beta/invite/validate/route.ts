@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json(result)
 
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('Validation Error:', err)
         return NextResponse.json({ valid: false, reason: 'INTERNAL_ERROR' }, { status: 500 })
     }

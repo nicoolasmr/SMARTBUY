@@ -17,7 +17,16 @@ import { useRouter } from "next/navigation";
 // I will start by writing this form, then I will FIX `actions.ts` to include `updateWish` or standardise `upsert`.
 // Let's assume `createWish` action handles creation. I'll need a separate `updateWish`.
 
-export function WishForm({ initialData }: { initialData?: any }) {
+interface WishData {
+    id?: string
+    title?: string
+    urgency?: string
+    intent?: string
+    min_price?: number
+    max_price?: number
+}
+
+export function WishForm({ initialData }: { initialData?: WishData }) {
     const [isPending, startTransition] = useTransition();
     const [error, setError] = useState<string | null>(null);
     const router = useRouter();
@@ -44,6 +53,7 @@ export function WishForm({ initialData }: { initialData?: any }) {
         if (!confirm('Tem certeza?')) return;
 
         startTransition(async () => {
+            if (!initialData.id) return;
             const res = await deleteWish(initialData.id);
             if (res?.error) {
                 setError(res.error);
@@ -60,7 +70,7 @@ export function WishForm({ initialData }: { initialData?: any }) {
                 <Input
                     id="title"
                     name="title"
-                    defaultValue={initialData?.title}
+                    defaultValue={initialData?.title || ''}
                     placeholder="Ex: Airfryer Philco, iPhone 15..."
                     required
                 />
@@ -103,7 +113,7 @@ export function WishForm({ initialData }: { initialData?: any }) {
                         id="min_price"
                         name="min_price"
                         type="number"
-                        defaultValue={initialData?.min_price}
+                        defaultValue={initialData?.min_price || ''}
                         placeholder="0.00"
                     />
                 </div>
@@ -114,7 +124,7 @@ export function WishForm({ initialData }: { initialData?: any }) {
                         id="max_price"
                         name="max_price"
                         type="number"
-                        defaultValue={initialData?.max_price}
+                        defaultValue={initialData?.max_price || ''}
                         placeholder="0.00"
                     />
                 </div>

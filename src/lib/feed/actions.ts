@@ -1,17 +1,57 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { getHouseholdProfile, getWishes, getActiveHouseholdId } from '@/lib/app/actions'
-import { searchProducts } from '@/lib/catalog/actions'
+import { getHouseholdProfile, getActiveHouseholdId } from '@/lib/app/actions'
+// import { getWishes } from '@/lib/app/actions'
+// import { searchProducts } from '@/lib/catalog/actions'
+
+export type FeedProduct = {
+    id: string
+    name: string
+    brand?: string
+    ean_normalized: string
+    category?: string
+    attributes?: Record<string, unknown>
+}
+
+export type FeedOffer = {
+    id: string
+    price: number
+    url: string
+    shops: {
+        id: string
+        name: string
+        logo_url?: string
+        reputation_score?: number
+    }
+    freight?: number
+    delivery_days?: number
+    offer_risk_scores?: {
+        bucket: 'A' | 'B' | 'C'
+        score: number
+        reasons: string[]
+    }
+}
 
 export type FeedItem = {
     type: 'product_recommendation'
-    product: any
-    bestOffer: any
+    product: FeedProduct
+    bestOffer: FeedOffer & { risk?: FeedOffer['offer_risk_scores'] }
     reasons: string[]
     matchScore: number
     wishId?: string
     missionId?: string
+}
+
+type RPCFeedCandidate = {
+    w_id: string
+    w_title: string
+    w_urgency: 'high' | 'medium' | 'low'
+    w_min_price?: number
+    w_max_price?: number
+    product_data: FeedProduct
+    best_offer_data: FeedOffer
+    risk_data?: FeedOffer['offer_risk_scores']
 }
 
 
@@ -39,7 +79,7 @@ export async function getFeed(context?: { missionId?: string }) {
 
     const profile = profileRes.data || {}
     const homeListItems = homeListRes.data || []
-    const missionWishIds = (missionItemsRes.data || []).map((i: any) => i.wish_id)
+    const missionWishIds = (missionItemsRes.data || []).map((i) => i.wish_id)
 
     // 2. RPC Call - [Hardening] Use SQL to filter candidates and join data efficiently
     const { data: candidates, error } = await supabase.rpc('fn_get_feed_candidates', { p_household_id: activeHouseholdId })
@@ -56,7 +96,10 @@ export async function getFeed(context?: { missionId?: string }) {
     const seenProductIds = new Set<string>()
 
     // 3. Scoring & Logic (JS Side - Keeping transparency)
-    for (const item of candidates as any[]) {
+    // Cast strict type to RPC result
+    const rpcCandidates = (candidates || []) as unknown as RPCFeedCandidate[]
+
+    for (const item of rpcCandidates) {
         const product = item.product_data
 
         // Ensure bestOffer has the structure UI expects
@@ -73,17 +116,17 @@ export async function getFeed(context?: { missionId?: string }) {
         let score = 0
 
         // Derived from RPC columns
-        const wishTitle = item.wish_title
-        const wishUrgency = item.wish_urgency
-        const wishMinPrice = item.wish_min_price
-        const wishId = item.wish_id
+        const wishTitle = item.w_title
+        const wishUrgency = item.w_urgency
+        const wishMinPrice = item.w_min_price
+        const wishId = item.w_id
 
         // Score: Wish Match
         score += 100
         reasons.push(`Baseado no seu desejo "${wishTitle}"`)
 
         // Score: Home List Logic
-        const homeItem = homeListItems.find((h: any) => h.product_id === product.id)
+        const homeItem = homeListItems.find((h) => h.product_id === product.id)
         if (homeItem) {
             const due = new Date(homeItem.next_suggested_at)
             const today = new Date()

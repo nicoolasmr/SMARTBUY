@@ -3,13 +3,24 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { revalidatePath } from "next/cache"
-import { redirect } from "next/navigation"
+// import { notFound } from 'next/navigation'
+// import { redirect } from "next/navigation"
 
 export const dynamic = 'force-dynamic'
 
+type BetaInvite = {
+    id: string
+    code: string
+    status: 'active' | 'revoked' | 'used'
+    used_count: number
+    max_uses: number
+    notes?: string
+    created_at: string
+}
+
 export default async function BetaOpsPage() {
     const status = await getBetaStatus()
-    const invites = await getInvites()
+    const invites = (await getInvites()) as unknown as BetaInvite[]
 
     async function handleGenerate(formData: FormData) {
         'use server'
@@ -75,8 +86,8 @@ export default async function BetaOpsPage() {
                         <p className="text-sm text-muted-foreground mt-2">Active Households</p>
                         <div className="w-full bg-secondary h-2 mt-4 rounded-full overflow-hidden">
                             <div
-                                className={`h-full ${status.activeHouseholds >= status.cap ? 'bg-red-500' : 'bg-green-500'}`}
-                                style={{ width: `${Math.min(100, (status.activeHouseholds / status.cap) * 100)}%` }}
+                                className={`h - full ${status.activeHouseholds >= status.cap ? 'bg-red-500' : 'bg-green-500'} `}
+                                style={{ width: `${Math.min(100, (status.activeHouseholds / status.cap) * 100)}% ` }}
                             />
                         </div>
                     </CardContent>
@@ -129,7 +140,7 @@ export default async function BetaOpsPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {invites.map((invite: any) => (
+                                {invites.map((invite) => (
                                     <tr key={invite.id} className="border-t hover:bg-muted/50">
                                         <td className="p-3 font-mono font-bold">{invite.code}</td>
                                         <td className="p-3">

@@ -32,7 +32,7 @@ export default async function SavingsPage() {
                         <span>Data</span>
                         <span className="text-right">Valor Economizado</span>
                     </div>
-                    {history.map((h: any) => (
+                    {history.map((h: { calculated_at: string; economy_amount: number }) => (
                         <div key={h.calculated_at} className="p-4 border-b grid grid-cols-2">
                             <span>{format(new Date(h.calculated_at), "d 'de' MMMM, yyyy", { locale: ptBR })}</span>
                             <span className="text-right font-bold text-green-600">+ R$ {h.economy_amount.toFixed(2)}</span>

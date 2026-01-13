@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Trash2, TrendingDown } from "lucide-react";
-import { revalidatePath } from "next/cache";
+// import { revalidatePath } from "next/cache";
 
 export default async function AlertsPage() {
     const { data: alerts } = await getAlerts();
@@ -57,7 +57,7 @@ export default async function AlertsPage() {
                     <p className="text-muted-foreground text-center py-8">Nenhum alerta ativo.</p>
                 )}
 
-                {alerts && alerts.map((alert: any) => (
+                {(alerts as unknown as { id: string; products?: { name: string }; is_active: boolean; type: string; target_value: number; last_triggered_at?: string }[]).map((alert) => (
                     <Card key={alert.id} className="p-4 flex items-center justify-between">
                         <div className="space-y-1">
                             <div className="font-semibold flex items-center gap-2">

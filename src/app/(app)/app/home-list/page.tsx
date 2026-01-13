@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+// import { Badge } from "@/components/ui/badge";
 import { Trash2, AlertCircle, CheckCircle2 } from "lucide-react";
 
 export default async function HomeListPage() {
@@ -23,20 +23,31 @@ export default async function HomeListPage() {
 
     const today = new Date();
 
+    interface HomeListItem {
+        id: string
+        next_suggested_at: string
+        frequency_days: number
+        products: {
+            name: string
+        } | null
+    }
+
+    const typedItems = (items || []) as unknown as HomeListItem[]
+
     // Split items into "Due Soon" and "Stocked"
-    const dueItems = items?.filter((item: any) => {
+    const dueItems = typedItems.filter((item) => {
         const due = new Date(item.next_suggested_at);
         const diffTime = due.getTime() - today.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         return diffDays <= 7;
-    }) || [];
+    });
 
-    const stockedItems = items?.filter((item: any) => {
+    const stockedItems = typedItems.filter((item) => {
         const due = new Date(item.next_suggested_at);
         const diffTime = due.getTime() - today.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         return diffDays > 7;
-    }) || [];
+    });
 
     return (
         <div className="space-y-8">
@@ -79,7 +90,7 @@ export default async function HomeListPage() {
                             Nada urgente por aqui.
                         </div>
                     )}
-                    {dueItems.map((item: any) => (
+                    {dueItems.map((item) => (
                         <Card key={item.id} className="p-4 flex justify-between items-center border-orange-200 bg-orange-50">
                             <div>
                                 <div className="font-medium">{item.products?.name}</div>
@@ -107,7 +118,7 @@ export default async function HomeListPage() {
                             Sua lista de estoque está vazia.
                         </div>
                     )}
-                    {stockedItems.map((item: any) => (
+                    {stockedItems.map((item) => (
                         <Card key={item.id} className="p-4 flex justify-between items-center">
                             <div>
                                 <div className="font-medium">{item.products?.name}</div>

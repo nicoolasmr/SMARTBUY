@@ -8,8 +8,32 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default async function PurchasesPage() {
-    const { data: purchases } = await getPurchases();
-    const { data: recentClicks } = await getRecentClicks();
+    interface Purchase {
+        id: string
+        status: string
+        price_paid: number
+        purchase_date: string
+        receipt_uploads?: { id: string }[]
+        offers?: {
+            products?: { name: string }
+            shops?: { name: string }
+        }
+    }
+
+    interface RecentClick {
+        id: string
+        offers?: {
+            price: number
+            products?: { name: string }
+            shops?: { name: string }
+        }
+    }
+
+    const { data: purchasesData } = await getPurchases();
+    const purchases = (purchasesData || []) as unknown as Purchase[];
+
+    const { data: clicksData } = await getRecentClicks();
+    const recentClicks = (clicksData || []) as unknown as RecentClick[];
 
     async function declareP(formData: FormData) {
         'use server'
@@ -42,7 +66,7 @@ export default async function PurchasesPage() {
                                     <SelectValue placeholder={hasClicks ? "Selecione um clique recente" : "Nenhum clique recente"} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {recentClicks?.map((click: any) => (
+                                    {recentClicks?.map((click) => (
                                         <SelectItem key={click.id} value={click.id}>
                                             {click.offers?.products?.name} - {click.offers?.shops?.name} (R$ {click.offers?.price})
                                         </SelectItem>
@@ -67,7 +91,7 @@ export default async function PurchasesPage() {
                     <p className="text-muted-foreground text-center py-8">Nenhuma compra registrada.</p>
                 )}
 
-                {purchases?.map((p: any) => (
+                {purchases?.map((p) => (
                     <Card key={p.id} className="p-6">
                         <div className="flex flex-col md:flex-row justify-between gap-4">
                             <div>
@@ -95,7 +119,7 @@ export default async function PurchasesPage() {
                                     </form>
                                 )}
 
-                                {p.receipt_uploads?.length > 0 && (
+                                {p.receipt_uploads?.length && p.receipt_uploads.length > 0 && (
                                     <Badge variant="outline" className="text-blue-600 border-blue-200">
                                         Comprovante em Análise
                                     </Badge>

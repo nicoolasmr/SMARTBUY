@@ -23,7 +23,19 @@ async function getOpsOffers() {
 }
 
 export default async function OpsOffersPage() {
-    const offers = await getOpsOffers();
+    // Local Interface
+    type RiskData = { bucket: 'A' | 'B' | 'C'; score: number; reasons: string[] }
+    interface OpsOffer {
+        id: string
+        price: number
+        is_available: boolean
+        products: { name: string; ean_normalized: string }
+        shops: { name: string }
+        offer_risk_scores?: RiskData | RiskData[]
+    }
+
+    const offersData = await getOpsOffers();
+    const offers = (offersData || []) as unknown as OpsOffer[]
 
     async function recalc(id: string) {
         'use server'
@@ -33,60 +45,63 @@ export default async function OpsOffersPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <h1 className="text-3xl font-bold tracking-tight">Ofertas Ativas + Anti-Cilada</h1>
-                <Button>Nova Oferta</Button>
-            </div>
 
-            <div className="border rounded-md">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Produto</TableHead>
-                            <TableHead>Loja</TableHead>
-                            <TableHead>Preço</TableHead>
-                            <TableHead>Risco</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead className="text-right">Ações</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {offers?.map((offer: any) => {
-                            // Handle array response from join
-                            const risk = Array.isArray(offer.offer_risk_scores) ? offer.offer_risk_scores[0] : offer.offer_risk_scores
-                            return (
-                                <TableRow key={offer.id}>
-                                    <TableCell>
-                                        <div className="font-medium">{offer.products?.name}</div>
-                                        <div className="text-xs text-muted-foreground">{offer.products?.ean_normalized}</div>
-                                    </TableCell>
-                                    <TableCell>{offer.shops?.name}</TableCell>
-                                    <TableCell>R$ {offer.price}</TableCell>
-                                    <TableCell>
-                                        {risk ? (
-                                            <div className="flex flex-col gap-1">
-                                                <RiskBadge bucket={risk.bucket} reasons={risk.reasons} />
-                                                <span className="text-xs text-muted-foreground">Score: {risk.score}</span>
-                                            </div>
-                                        ) : (
-                                            <span className="text-muted-foreground text-xs">Pendente</span>
-                                        )}
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge variant={offer.is_available ? 'default' : 'secondary'}>
-                                            {offer.is_available ? 'Ativo' : 'Inativo'}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <form action={recalc.bind(null, offer.id)}>
-                                            <Button variant="outline" size="sm">Recalcular Risco</Button>
-                                        </form>
-                                    </TableCell>
-                                </TableRow>
-                            )
-                        })}
-                    </TableBody>
-                </Table>
+            <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                    <h1 className="text-3xl font-bold tracking-tight">Ofertas Ativas + Anti-Cilada</h1>
+                    <Button>Nova Oferta</Button>
+                </div>
+
+                <div className="border rounded-md">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Produto</TableHead>
+                                <TableHead>Loja</TableHead>
+                                <TableHead>Preço</TableHead>
+                                <TableHead>Risco</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead className="text-right">Ações</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {offers?.map((offer) => {
+                                // Handle array response from join
+                                const risk = Array.isArray(offer.offer_risk_scores) ? offer.offer_risk_scores[0] : offer.offer_risk_scores
+                                return (
+                                    <TableRow key={offer.id}>
+                                        <TableCell>
+                                            <div className="font-medium">{offer.products?.name}</div>
+                                            <div className="text-xs text-muted-foreground">{offer.products?.ean_normalized}</div>
+                                        </TableCell>
+                                        <TableCell>{offer.shops?.name}</TableCell>
+                                        <TableCell>R$ {offer.price}</TableCell>
+                                        <TableCell>
+                                            {risk ? (
+                                                <div className="flex flex-col gap-1">
+                                                    <RiskBadge bucket={risk.bucket} reasons={risk.reasons} />
+                                                    <span className="text-xs text-muted-foreground">Score: {risk.score}</span>
+                                                </div>
+                                            ) : (
+                                                <span className="text-muted-foreground text-xs">Pendente</span>
+                                            )}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant={offer.is_available ? 'default' : 'secondary'}>
+                                                {offer.is_available ? 'Ativo' : 'Inativo'}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <form action={recalc.bind(null, offer.id)}>
+                                                <Button variant="outline" size="sm">Recalcular Risco</Button>
+                                            </form>
+                                        </TableCell>
+                                    </TableRow>
+                                )
+                            })}
+                        </TableBody>
+                    </Table>
+                </div>
             </div>
         </div>
     );

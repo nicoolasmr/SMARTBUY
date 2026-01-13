@@ -27,7 +27,9 @@ const wishSchema = z.object({
 
 // --- Helpers ---
 
-export async function getActiveHouseholdId(supabase: any) {
+import { SupabaseClient } from '@supabase/supabase-js'
+
+export async function getActiveHouseholdId(supabase: SupabaseClient) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) throw new Error('Unauthorized')
 
@@ -63,7 +65,7 @@ export async function getHouseholdProfile() {
 
         // If not found, return empty/default structure (or null and let UI handle)
         return { data: data || null }
-    } catch (e) {
+    } catch (_e) {
         return { error: 'Unauthorized' }
     }
 }
@@ -108,7 +110,7 @@ export async function updateHouseholdProfile(formData: FormData) {
         revalidatePath('/app/profile')
         return { data }
 
-    } catch (e) {
+    } catch (_e) {
         return { error: 'Unauthorized' }
     }
 }
@@ -128,7 +130,7 @@ export async function getWishes() {
 
         if (error) return { error: error.message }
         return { data }
-    } catch (e) {
+    } catch (_e) {
         return { error: 'Unauthorized' }
     }
 }
@@ -147,7 +149,7 @@ export async function getWish(id: string) {
 
         if (error) return { error: error.message }
         return { data }
-    } catch (e) {
+    } catch (_e) {
         return { error: 'Unauthorized' }
     }
 }
@@ -182,7 +184,7 @@ export async function createWish(formData: FormData) {
 
         revalidatePath('/app/wishes')
         return { success: true }
-    } catch (e) {
+    } catch (_e) {
         return { error: 'Unauthorized' }
     }
 }
@@ -219,7 +221,7 @@ export async function updateWish(id: string, formData: FormData) {
 
         revalidatePath('/app/wishes')
         return { success: true }
-    } catch (e) {
+    } catch (_e) {
         return { error: 'Unauthorized' }
     }
 }
@@ -239,7 +241,7 @@ export async function deleteWish(id: string) {
 
         revalidatePath('/app/wishes')
         return { success: true }
-    } catch (e) {
+    } catch (_e) {
         return { error: 'Unauthorized' }
     }
 }

@@ -1,10 +1,11 @@
-import { getFeed } from "@/lib/feed/actions";
+import { getFeed, FeedItem } from "@/lib/feed/actions";
 import { ProductCard } from "@/components/feed/product-card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
 export default async function AppFeedPage() {
-    const { data: feed } = await getFeed();
+    const { data: feedData } = await getFeed();
+    const feed = (feedData || []) as FeedItem[];
     const isEmpty = !feed || feed.length === 0;
 
     return (
@@ -39,7 +40,7 @@ export default async function AppFeedPage() {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                        {feed.map((item: any, idx: number) => (
+                        {feed.map((item, idx) => (
                             <ProductCard key={`${item.product.id}-${idx}`} item={item} />
                         ))}
                     </div>

@@ -31,8 +31,9 @@ export async function GET(request: NextRequest) {
             status: result.status || 'completed',
             processed: result.processed
         })
-    } catch (err: any) {
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Unknown Job Error'
         console.error('[OPS] Job Execution Failed:', err)
-        return NextResponse.json({ success: false, error: err.message }, { status: 500 })
+        return NextResponse.json({ success: false, error: message }, { status: 500 })
     }
 }

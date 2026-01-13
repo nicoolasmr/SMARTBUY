@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
+// import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 
@@ -17,12 +18,21 @@ export default async function MissionDetailPage({ params }: { params: { missionI
         notFound();
     }
 
-    const { mission, items } = data;
+    const { mission, items: rawItems } = data;
+
+    interface MissionItem {
+        id: string
+        estimated_price: number
+        is_completed: boolean
+        title: string
+        wishes?: { title: string }
+    }
+    const items = (rawItems || []) as unknown as MissionItem[]
 
     // Calculations
-    const totalEstimated = items.reduce((acc: number, item: any) => acc + (Number(item.estimated_price) || 0), 0);
+    const totalEstimated = items.reduce((acc, item) => acc + (Number(item.estimated_price) || 0), 0);
     const remainingBudget = (mission.budget_total || 0) - totalEstimated;
-    const completedCount = items.filter((i: any) => i.is_completed).length;
+    const completedCount = items.filter((i) => i.is_completed).length;
     const progress = items.length > 0 ? (completedCount / items.length) * 100 : 0;
 
     async function add(formData: FormData) {
@@ -94,7 +104,7 @@ export default async function MissionDetailPage({ params }: { params: { missionI
                 </Card>
 
                 <div className="space-y-2">
-                    {items.map((item: any) => (
+                    {items.map((item) => (
                         <MissionItemRow key={item.id} item={item} />
                     ))}
                     {items.length === 0 && (

@@ -3,7 +3,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin"
 interface TrackOptions {
     userId?: string
     householdId?: string
-    payload?: any
+    payload?: Record<string, unknown>
 }
 
 export async function track(eventName: string, options: TrackOptions = {}) {

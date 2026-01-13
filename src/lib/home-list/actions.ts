@@ -3,8 +3,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { getActiveHouseholdId } from '@/lib/app/actions'
 import { revalidatePath } from 'next/cache'
-import { addDays, format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { addDays } from 'date-fns'
+// import { format } from 'date-fns'
+// import { ptBR } from 'date-fns/locale'
 
 export async function addItem(formData: FormData) {
     const supabase = await createClient()
@@ -24,6 +25,7 @@ export async function addItem(formData: FormData) {
         .insert({
             household_id: householdId,
             product_id: productId,
+
             frequency_days: frequency,
             last_purchase_at: now.toISOString(),
             next_suggested_at: next.toISOString()
@@ -66,13 +68,21 @@ export async function getList() {
     return { data: data || [] }
 }
 
+interface HomeListItemSummary {
+    next_suggested_at: string
+    products: { name: string; brand: string } | null
+}
+
 export async function generateWhatsAppSummary() {
     const { data } = await getList()
     if (!data || data.length === 0) return ""
 
     // Filter for items "due" soon (e.g. within next 7 days) or late
     const today = new Date()
-    const dueItems = data.filter((item: any) => {
+    // Cast strict type
+    const typedData = data as unknown as HomeListItemSummary[]
+
+    const dueItems = typedData.filter((item) => {
         const due = new Date(item.next_suggested_at)
         const diffTime = due.getTime() - today.getTime()
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
@@ -84,7 +94,7 @@ export async function generateWhatsAppSummary() {
     let text = "*🛒 Lista da Casa — SmartBuy*\n\n"
     text += "Itens para repor:\n"
 
-    dueItems.forEach((item: any) => {
+    dueItems.forEach((item) => {
         text += `• ${item.products?.name} (${item.products?.brand || ''})\n`
     })
 

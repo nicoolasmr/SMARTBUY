@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { runPriceTrackingJob, runAlertEvaluatorJob } from '@/lib/jobs/price-tracker';
 
 // Secure this with a secret in real prod
-export async function GET(request: Request) {
+export async function GET() {
     try {
         const trackingResult = await runPriceTrackingJob()
         const alertResult = await runAlertEvaluatorJob()
@@ -12,7 +12,8 @@ export async function GET(request: Request) {
             tracking: trackingResult,
             alerts: alertResult
         })
-    } catch (error: any) {
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Unknown error'
+        return NextResponse.json({ success: false, error: message }, { status: 500 })
     }
 }

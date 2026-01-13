@@ -4,8 +4,18 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
+interface Wish {
+    id: string
+    title: string
+    urgency: 'high' | 'medium' | 'low'
+    intent: 'buy_now' | 'research' | 'track_price'
+    min_price?: number
+    max_price?: number
+}
+
 export default async function WishesPage() {
-    const { data: wishes } = await getWishes();
+    const { data } = await getWishes();
+    const wishes = (data || []) as unknown as Wish[]
 
     const empty = !wishes || wishes.length === 0;
 
@@ -38,7 +48,7 @@ export default async function WishesPage() {
                 </Card>
             ) : (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {wishes.map((wish: any) => (
+                    {wishes.map((wish) => (
                         <Link key={wish.id} href={`/app/wishes/${wish.id}`}>
                             <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer space-y-3">
                                 <div className="flex justify-between items-start">

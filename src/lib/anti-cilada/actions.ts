@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 
 // Mock Bad List (e.g., shops known for issues)
@@ -37,12 +38,12 @@ export async function calculateRiskScore(offerId: string) {
 
     // --- Heuristic 2: Price Volatility ---
     if (history && history.length >= 2) {
-        const currentPrice = offer.price
+        // const currentPrice = offer.price
         // Check if price increased significantly recently before dropping (fake promo)
         // Simple check: variance?
         // Or check if current price is > average of last week? 
         // Let's check: If max price in history was > 50% higher than min price in short window -> Volatile
-        const prices = history.map((h: any) => h.price)
+        const prices = history.map((h: { price: number }) => h.price)
         const maxP = Math.max(...prices)
         const minP = Math.min(...prices)
 
@@ -80,8 +81,7 @@ export async function upsertRiskScore(offerId: string) {
     // Fallback to client if no key, but warn
     let sbAdmin
     if (SERVICE_KEY) {
-        const { createClient: createAdmin } = require('@supabase/supabase-js')
-        sbAdmin = createAdmin(SUBS_URL, SERVICE_KEY)
+        sbAdmin = createAdminClient(SUBS_URL, SERVICE_KEY)
     } else {
         sbAdmin = await createClient() // Might fail RLS
     }

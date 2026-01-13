@@ -95,7 +95,7 @@ export async function runPriceTrackingJob() {
             }
 
             // 3. Process Batch
-            const updates = []
+            const _updates = []
 
             for (const offer of offers) {
                 // Check Price (Stub or Demo Random)

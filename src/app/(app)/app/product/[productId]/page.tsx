@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { notFound } from "next/navigation";
-import Link from "next/link";
+// import Link from "next/link";
 
 export default async function ProductPage({ params }: { params: { productId: string } }) {
     const { data, error } = await getProduct(params.productId);
@@ -61,7 +61,7 @@ export default async function ProductPage({ params }: { params: { productId: str
             <div className="space-y-4">
                 <h2 className="text-xl font-bold">Todas as Ofertas</h2>
                 <div className="grid gap-4">
-                    {offers?.map((offer: any) => (
+                    {offers?.map((offer) => (
                         <Card key={offer.id} className="p-4 flex items-center justify-between">
                             <div className="flex items-center gap-4">
                                 <StoreBadge name={offer.shops?.name} reputation={offer.shops?.reputation_score} />

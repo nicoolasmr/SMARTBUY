@@ -27,6 +27,10 @@ export async function trackClick(offerId: string, targetUrl: string) {
         .select('id')
         .single()
 
+    if (error) {
+        // console.error(...)
+    }
+
     // 2. Log Click (Async-ish?)
     if (data?.id) {
         await supabase.from('click_events').insert({

@@ -6,7 +6,15 @@ import { Input } from "@/components/ui/input";
 import { updateHouseholdProfile } from "@/lib/app/actions";
 import { Label } from "@/components/ui/label";
 
-export function ProfileForm({ initialData }: { initialData: any }) {
+type ProfileData = {
+    budget_monthly?: number
+    budget_per_mission?: number
+    max_installments?: number
+    allowed_stores?: string[]
+    blocked_stores?: string[]
+}
+
+export function ProfileForm({ initialData }: { initialData: ProfileData }) {
     const [isPending, startTransition] = useTransition();
     const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 

@@ -3,7 +3,7 @@ export type AlertChannel = 'email' | 'push' | 'whatsapp'
 export interface AlertPayload {
     title: string
     body: string
-    data?: any
+    data?: Record<string, unknown>
 }
 
 export async function sendAlert(channel: AlertChannel, payload: AlertPayload) {

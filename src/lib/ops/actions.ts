@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { type SupabaseClient } from '@supabase/supabase-js'
 
 // --- Schemas ---
 
@@ -27,7 +28,7 @@ const upsertOfferSchema = z.object({
 
 // --- Helpers ---
 
-async function logOpsAction(supabase: any, userId: string, action: string, entityType: string, entityId: string, payload: any) {
+async function logOpsAction(supabase: SupabaseClient, userId: string, action: string, entityType: string, entityId: string, payload: unknown) {
     try {
         await supabase.from('ops_audit_logs').insert({
             ops_user_id: userId,
@@ -36,14 +37,14 @@ async function logOpsAction(supabase: any, userId: string, action: string, entit
             entity_id: entityId,
             payload
         })
-    } catch (e) {
-        console.error('Failed to log ops action', e)
+    } catch (_e) {
+        console.error('Failed to log ops action', _e)
         // Non-blocking error for log failure? Debateable. Ideally we want it to fail if log fails for Strict Audit.
         // For Beta, we log error.
     }
 }
 
-export async function checkOpsRole(supabase: any) {
+export async function checkOpsRole(supabase: SupabaseClient) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Unauthorized')
     return user
@@ -85,7 +86,7 @@ export async function upsertProduct(formData: FormData) {
         revalidatePath('/ops/catalog')
         return { data }
 
-    } catch (e) {
+    } catch (_e) {
         return { error: 'Unauthorized or Error' }
     }
 }
@@ -131,7 +132,7 @@ export async function upsertOffer(formData: FormData) {
         revalidatePath('/ops/offers')
         return { success: true }
 
-    } catch (e) {
+    } catch (_e) {
         return { error: 'Unauthorized' }
     }
 }
@@ -146,7 +147,7 @@ export async function createShop(name: string, domain?: string) {
         await logOpsAction(supabase, user.id, 'CREATE_SHOP', 'shop', data.id, { name, domain })
 
         return { success: true }
-    } catch (e) { return { error: 'Unauthorized' } }
+    } catch (_e) { return { error: 'Unauthorized' } }
 }
 
 export async function getShops() {

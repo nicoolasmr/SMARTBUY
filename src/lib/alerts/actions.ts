@@ -1,5 +1,3 @@
-import { track } from '@/lib/analytics/track'
-
 import { createClient } from '@/lib/supabase/server'
 import { getActiveHouseholdId } from '@/lib/app/actions'
 import { z } from 'zod'

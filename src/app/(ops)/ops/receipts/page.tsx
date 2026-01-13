@@ -2,14 +2,14 @@ import { createClient } from "@/lib/supabase/server";
 import { checkOpsRole } from "@/lib/ops/actions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+// import { Badge } from '@/components/ui/badge'";
 import { revalidatePath } from "next/cache";
 
 export default async function OpsReceiptsPage() {
     const supabase = await createClient();
     await checkOpsRole(supabase);
 
-    const { data: uploads } = await supabase
+    const { data: uploadsData } = await supabase
         .from('receipt_uploads')
         .select(`
             *,
@@ -22,6 +22,20 @@ export default async function OpsReceiptsPage() {
         `)
         .eq('status', 'pending')
         .order('created_at', { ascending: true });
+
+    interface OpsReceipt {
+        id: string
+        purchase_id: string
+        file_path: string
+        purchases: {
+            id: string
+            price_paid: number
+            household_id: string
+            offers?: { price: number }
+        }
+    }
+
+    const uploads = (uploadsData || []) as unknown as OpsReceipt[]
 
     async function approve(uploadId: string, purchaseId: string, pricePaid: number, referencePrice: number, householdId: string) {
         'use server'
@@ -52,7 +66,7 @@ export default async function OpsReceiptsPage() {
             <h1 className="text-3xl font-bold">Revisão de Comprovantes</h1>
 
             <div className="grid gap-4">
-                {uploads?.map((u: any) => (
+                {uploads?.map((u) => (
                     <Card key={u.id} className="p-6">
                         <div className="flex justify-between items-start">
                             <div>
