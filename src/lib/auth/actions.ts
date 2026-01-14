@@ -33,7 +33,8 @@ export async function login(formData: FormData) {
         revalidatePath('/', 'layout')
     } catch (error) {
         console.error('Login error:', error)
-        return { error: 'Ocorreu um erro inesperado ao tentar fazer login. Tente novamente.' }
+        const message = error instanceof Error ? error.message : 'Erro desconhecido'
+        return { error: `Erro técnico: ${message}` }
     }
 
     redirect('/app')
