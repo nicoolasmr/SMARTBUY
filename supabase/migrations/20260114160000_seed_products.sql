@@ -132,7 +132,7 @@ BEGIN
             'images', array['Macbook Air M2 Midnight', 'Macbook Aberto']
         )
     );
-    INSERT INTO public.offers (product_id, shop_id, price, url, is_available) VALUES (p_id, s_mercado_libre, 8200.00, 'http://ml.com.br/macbook', true);
+    INSERT INTO public.offers (product_id, shop_id, price, url, is_available) VALUES (p_id, s_ml, 8200.00, 'http://ml.com.br/macbook', true);
 
 
     -- 1.6 Carregador Baseus GaN 65W
@@ -241,7 +241,7 @@ BEGIN
             'images', array['Potes Empilhados com Macarrão']
         )
     );
-    INSERT INTO public.offers (product_id, shop_id, price, url, is_available) VALUES (p_id, s_mercado_libre, 220.00, 'http://ml.com/potes', true);
+    INSERT INTO public.offers (product_id, shop_id, price, url, is_available) VALUES (p_id, s_ml, 220.00, 'http://ml.com/potes', true);
 
     -- ==========================================
     -- CATEGORY 4: FITNESS & SAÚDE
@@ -260,7 +260,7 @@ BEGIN
             'images', array['Pote Roxo Growth']
         )
     );
-    INSERT INTO public.offers (product_id, shop_id, price, url, is_available) VALUES (p_id, s_mercado_libre, 99.00, 'http://ml.com/creatina', true);
+    INSERT INTO public.offers (product_id, shop_id, price, url, is_available) VALUES (p_id, s_ml, 99.00, 'http://ml.com/creatina', true);
 
     -- ==========================================
     -- CATEGORY 5: PETS
