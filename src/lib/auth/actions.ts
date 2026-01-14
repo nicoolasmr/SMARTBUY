@@ -91,8 +91,9 @@ export async function signup(formData: FormData) {
         await claimInvite(inviteCode, data.user.id)
     }
 
-    revalidatePath('/', 'layout')
-    redirect('/onboarding/welcome')
+    // [FLOW CHANGE] User requested manual login after signup
+    await supabase.auth.signOut()
+    redirect('/login?signedUp=true')
 }
 
 export async function logout() {

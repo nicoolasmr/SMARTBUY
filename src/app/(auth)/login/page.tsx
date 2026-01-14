@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { login } from "@/lib/auth/actions";
 
-export default function LoginPage() {
+export default function LoginPage({ searchParams }: { searchParams: { signedUp?: string } }) {
     const [isPending, startTransition] = useTransition();
     const [error, setError] = useState<string | null>(null);
 
@@ -30,6 +30,13 @@ export default function LoginPage() {
                         Entre com seu email para continuar
                     </p>
                 </div>
+
+                {searchParams?.signedUp && (
+                    <div className="p-3 text-sm text-green-600 bg-green-50 border border-green-200 rounded-md text-center">
+                        Conta criada com sucesso! Faça login para continuar.
+                    </div>
+                )}
+
                 <form action={handleSubmit} className="space-y-4">
                     <div className="space-y-2">
                         <Input name="email" type="email" placeholder="seu@email.com" required />
