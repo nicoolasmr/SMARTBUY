@@ -1,5 +1,6 @@
 'use client'
 
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useTransition, useState, Suspense } from "react";
 import { Button } from "@/components/ui/button";
