@@ -16,20 +16,26 @@ const schema = z.object({
 })
 
 export async function login(formData: FormData) {
-    const supabase = await createClient()
+    try {
+        const supabase = await createClient()
 
-    const data = {
-        email: formData.get('email') as string,
-        password: formData.get('password') as string,
+        const data = {
+            email: formData.get('email') as string,
+            password: formData.get('password') as string,
+        }
+
+        const { error } = await supabase.auth.signInWithPassword(data)
+
+        if (error) {
+            return { error: error.message }
+        }
+
+        revalidatePath('/', 'layout')
+    } catch (error) {
+        console.error('Login error:', error)
+        return { error: 'Ocorreu um erro inesperado ao tentar fazer login. Tente novamente.' }
     }
 
-    const { error } = await supabase.auth.signInWithPassword(data)
-
-    if (error) {
-        return { error: error.message }
-    }
-
-    revalidatePath('/', 'layout')
     redirect('/app')
 }
 
