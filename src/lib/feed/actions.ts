@@ -90,10 +90,101 @@ export async function getFeed(context?: { missionId?: string }) {
         return { data: [] }
     }
 
-    if (!candidates) return { data: [] }
-
-    const feedItems: FeedItem[] = []
+    let feedItems: FeedItem[] = []
     const seenProductIds = new Set<string>()
+
+    // [FALLBACK] Discovery Mode: If no personal matches, show "SmartBuy Selection"
+    if (!candidates || candidates.length === 0) {
+
+        // 1. Try Profile-Based Recommendations
+        const userPrefs = (profile as any)?.preferences || {}
+        const lifeStage = (profile as any)?.preferences?.life_stage || ''
+        const tags = (profile as any)?.preferences?.tags || []
+
+        // Build Base Query
+        let profileQuery = supabase
+            .from('products')
+            .select(`
+                *,
+                offers!inner (
+                    id, price, url, is_available,
+                    shops (id, name, reputation_score),
+                    offer_risk_scores (bucket, score, reasons)
+                )
+            `)
+            .limit(10)
+
+        // Simple Mapping Logic
+        const categoriesOfInterest: string[] = []
+        if (tags.includes('premium')) { /* Logic could be price > X */ }
+        if (tags.includes('tech') || tags.includes('gamer')) categoriesOfInterest.push('Eletrônicos', 'Home Office')
+        if (tags.includes('fitness')) categoriesOfInterest.push('Suplementos', 'Fitness')
+        if (lifeStage === 'familia_pequena' || lifeStage === 'familia_grande') categoriesOfInterest.push('Bebê', 'Casa', 'Cozinha')
+        if (lifeStage === 'casal') categoriesOfInterest.push('Casa', 'Cozinha')
+
+        // If we have categories, filter. Else, generic.
+        if (categoriesOfInterest.length > 0) {
+            profileQuery = profileQuery.in('category', categoriesOfInterest)
+        }
+
+        let { data: discoveryProducts } = await profileQuery
+
+        // If profile yielded nothing (or no profile), fallback to generic random
+        if (!discoveryProducts || discoveryProducts.length === 0) {
+            const { data: genericProducts } = await supabase
+                .from('products')
+                .select(`
+                *,
+                offers!inner (
+                    id, price, url, is_available,
+                    shops (id, name, reputation_score),
+                    offer_risk_scores (bucket, score, reasons)
+                )
+            `)
+                .limit(10)
+            discoveryProducts = genericProducts
+        }
+
+        if (discoveryProducts) {
+            const discoveryItems: FeedItem[] = discoveryProducts.map((p: any) => {
+                // Find best offer (cheapest)
+                const sortedOffers = (p.offers || []).sort((a: any, b: any) => a.price - b.price)
+                const best = sortedOffers[0]
+
+                if (!best) return null
+
+                // Determine reason based on profile match
+                const isProfileMatch = categoriesOfInterest.includes(p.category)
+                const reasons = isProfileMatch
+                    ? ['Baseado no seu perfil', `Destaque em ${p.category}`]
+                    : ['Sugestão SmartBuy', 'Descubra novidades']
+
+                return {
+                    type: 'product_recommendation',
+                    product: {
+                        id: p.id,
+                        name: p.name,
+                        brand: p.brand,
+                        ean_normalized: p.ean_normalized,
+                        category: p.category,
+                        attributes: p.attributes
+                    },
+                    bestOffer: {
+                        id: best.id,
+                        price: best.price,
+                        url: best.url,
+                        shops: best.shops,
+                        offer_risk_scores: best.offer_risk_scores?.[0]
+                    },
+                    reasons: reasons,
+                    matchScore: isProfileMatch ? 70 : 50
+                }
+            }).filter(Boolean) as FeedItem[]
+
+            return { data: discoveryItems }
+        }
+        return { data: [] }
+    }
 
     // 3. Scoring & Logic (JS Side - Keeping transparency)
     // Cast strict type to RPC result
