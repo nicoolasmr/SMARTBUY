@@ -48,6 +48,11 @@ export default function AppLayout({
                                 Minhas Compras
                             </Button>
                         </Link>
+                        <Link href="/app/savings">
+                            <Button variant="ghost" className="w-full justify-start">
+                                Economia
+                            </Button>
+                        </Link>
                     </div>
 
                     <div className="pb-2 border-t pt-2">
