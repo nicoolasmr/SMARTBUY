@@ -33,16 +33,36 @@ async function seed() {
     ]
 
     console.log('🏪 Seeding Shops...')
-    const { data: createdShops, error: shopError } = await supabase
-        .from('shops')
-        .upsert(shops, { onConflict: 'name' })
-        .select()
 
-    if (shopError) {
-        console.error('❌ Shop Error:', shopError)
+    // Manual Dedupe Strategy (since no unique constraint on name)
+    const { data: existingShops, error: fetchError } = await supabase.from('shops').select('*')
+    if (fetchError) {
+        console.error('❌ Error checking shops:', fetchError)
         return
     }
-    console.log(`✅ Shops created: ${createdShops?.length}`)
+
+    const existingNames = new Set(existingShops?.map(s => s.name))
+    const shopsToInsert = shops.filter(s => !existingNames.has(s.name))
+
+    let createdShops = existingShops || []
+
+    if (shopsToInsert.length > 0) {
+        const { data: newShops, error: insertError } = await supabase
+            .from('shops')
+            .insert(shopsToInsert)
+            .select()
+
+        if (insertError) {
+            console.error('❌ Shop Insert Error:', insertError)
+            return
+        }
+        if (newShops) {
+            createdShops = [...createdShops, ...newShops]
+        }
+        console.log(`✅ Shops inserted: ${newShops?.length}`)
+    } else {
+        console.log('ℹ️ All shops already exist.')
+    }
 
     // 2. Seed Products
     // Schema: id, name, brand, ean_normalized, category, attributes
@@ -101,7 +121,7 @@ async function seed() {
         console.error('❌ Product Error:', prodError)
         return
     }
-    console.log(`✅ Products created: ${createdProducts?.length}`)
+    console.log(`✅ Products upserted: ${createdProducts?.length}`)
 
     // 3. Create Offers
     if (!createdProducts || !createdShops) return;
@@ -150,13 +170,22 @@ async function seed() {
         is_available: true
     })
 
-    console.log('🏷️ Seeding Offers...')
-    const { error: offerError } = await supabase.from('offers').insert(offers)
+    // Basic dedupe for offers? No unique constraint on offers normally, but let's just insert blindly for MVP or clear first?
+    // Safest: check existing offers count. If 0, insert.
 
-    if (offerError) {
-        console.error('❌ Offer Error:', offerError)
+    const { count } = await supabase.from('offers').select('*', { count: 'exact', head: true })
+
+    if (count === 0) {
+        console.log('🏷️ Seeding Offers...')
+        const { error: offerError } = await supabase.from('offers').insert(offers)
+
+        if (offerError) {
+            console.error('❌ Offer Error:', offerError)
+        } else {
+            console.log(`✅ Offers created: ${offers.length}`)
+        }
     } else {
-        console.log(`✅ Offers created: ${offers.length}`)
+        console.log('ℹ️ Offers already exist, skipping.')
     }
 
     console.log('🎉 Seed Complete!')

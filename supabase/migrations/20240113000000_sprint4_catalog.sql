@@ -1,5 +1,5 @@
 -- Create products table (Global)
-CREATE TABLE public.products (
+CREATE TABLE IF NOT EXISTS public.products (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     brand TEXT,
@@ -11,7 +11,7 @@ CREATE TABLE public.products (
 );
 
 -- Create shops table (Global)
-CREATE TABLE public.shops (
+CREATE TABLE IF NOT EXISTS public.shops (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     domain TEXT,
@@ -22,7 +22,7 @@ CREATE TABLE public.shops (
 );
 
 -- Create offers table (Global)
-CREATE TABLE public.offers (
+CREATE TABLE IF NOT EXISTS public.offers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
     shop_id UUID NOT NULL REFERENCES public.shops(id) ON DELETE CASCADE,
@@ -37,7 +37,7 @@ CREATE TABLE public.offers (
 );
 
 -- Create offer_price_history table (Global)
-CREATE TABLE public.offer_price_history (
+CREATE TABLE IF NOT EXISTS public.offer_price_history (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     offer_id UUID NOT NULL REFERENCES public.offers(id) ON DELETE CASCADE,
     price NUMERIC NOT NULL,
@@ -52,11 +52,11 @@ ALTER TABLE public.offers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.offer_price_history ENABLE ROW LEVEL SECURITY;
 
 -- Indexes
-CREATE INDEX idx_products_ean ON public.products(ean_normalized);
-CREATE INDEX idx_offers_product_id ON public.offers(product_id);
-CREATE INDEX idx_offers_shop_id ON public.offers(shop_id);
-CREATE INDEX idx_offer_history_offer_id ON public.offer_price_history(offer_id);
-CREATE INDEX idx_offer_history_captured_at ON public.offer_price_history(captured_at);
+CREATE INDEX IF NOT EXISTS idx_products_ean ON public.products(ean_normalized);
+CREATE INDEX IF NOT EXISTS idx_offers_product_id ON public.offers(product_id);
+CREATE INDEX IF NOT EXISTS idx_offers_shop_id ON public.offers(shop_id);
+CREATE INDEX IF NOT EXISTS idx_offer_history_offer_id ON public.offer_price_history(offer_id);
+CREATE INDEX IF NOT EXISTS idx_offer_history_captured_at ON public.offer_price_history(captured_at);
 
 -- RLS Policies
 
