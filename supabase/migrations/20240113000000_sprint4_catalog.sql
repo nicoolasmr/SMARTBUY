@@ -60,22 +60,15 @@ CREATE INDEX IF NOT EXISTS idx_offer_history_captured_at ON public.offer_price_h
 
 -- RLS Policies
 
--- Helper function to check for Ops/Admin role (Mock for now, assumes metadata or specific user ID if needed, 
--- but for MVP we will allow specific emails or just rely on service role for writing. 
--- However, the requirement is "Ops/Admin", let's assume we check app_metadata -> role.
--- Note: Supabase auth.jwt() -> app_metadata -> role is standard).
-
 -- PRODUCTS
 -- Everyone can read
+DROP POLICY IF EXISTS "Public read access for products" ON public.products;
 CREATE POLICY "Public read access for products" ON public.products
     FOR SELECT
     USING (auth.role() = 'authenticated');
 
--- Only Ops/Admin can write (Simplified: checking if we want to restrict. 
--- For now, let's create a policy that simply denies everything unless you are a super user or we add specific logic.
--- Actually, the prompt says "INSERT / UPDATE / DELETE: somente profiles.app_role in ('ops','admin')". 
--- To check `profiles`, we need a join or subquery).
-
+-- Only Ops/Admin can write
+DROP POLICY IF EXISTS "Ops can insert products" ON public.products;
 CREATE POLICY "Ops can insert products" ON public.products
     FOR INSERT
     WITH CHECK (
@@ -86,6 +79,7 @@ CREATE POLICY "Ops can insert products" ON public.products
         )
     );
 
+DROP POLICY IF EXISTS "Ops can update products" ON public.products;
 CREATE POLICY "Ops can update products" ON public.products
     FOR UPDATE
     USING (
@@ -97,10 +91,12 @@ CREATE POLICY "Ops can update products" ON public.products
     );
 
 -- SHOPS
+DROP POLICY IF EXISTS "Public read access for shops" ON public.shops;
 CREATE POLICY "Public read access for shops" ON public.shops
     FOR SELECT
     USING (auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "Ops can manage shops" ON public.shops;
 CREATE POLICY "Ops can manage shops" ON public.shops
     FOR ALL
     USING (
@@ -112,10 +108,12 @@ CREATE POLICY "Ops can manage shops" ON public.shops
     );
 
 -- OFFERS
+DROP POLICY IF EXISTS "Public read access for offers" ON public.offers;
 CREATE POLICY "Public read access for offers" ON public.offers
     FOR SELECT
     USING (auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "Ops can manage offers" ON public.offers;
 CREATE POLICY "Ops can manage offers" ON public.offers
     FOR ALL
     USING (
@@ -127,7 +125,8 @@ CREATE POLICY "Ops can manage offers" ON public.offers
     );
 
 -- PRICE HISTORY
--- Ops/Admin Only for now (as per prompt "SELECT: ops/admin")
+-- Ops/Admin Only for now
+DROP POLICY IF EXISTS "Ops read access for history" ON public.offer_price_history;
 CREATE POLICY "Ops read access for history" ON public.offer_price_history
     FOR SELECT
     USING (
@@ -138,6 +137,7 @@ CREATE POLICY "Ops read access for history" ON public.offer_price_history
         )
     );
     
+DROP POLICY IF EXISTS "Ops insert access for history" ON public.offer_price_history;
 CREATE POLICY "Ops insert access for history" ON public.offer_price_history
     FOR INSERT
     WITH CHECK (
@@ -149,16 +149,19 @@ CREATE POLICY "Ops insert access for history" ON public.offer_price_history
     );
     
 -- Trigger for updated_at
+DROP TRIGGER IF EXISTS update_products_updated_at ON public.products;
 CREATE TRIGGER update_products_updated_at
     BEFORE UPDATE ON public.products
     FOR EACH ROW
     EXECUTE PROCEDURE update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_shops_updated_at ON public.shops;
 CREATE TRIGGER update_shops_updated_at
     BEFORE UPDATE ON public.shops
     FOR EACH ROW
     EXECUTE PROCEDURE update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_offers_updated_at ON public.offers;
 CREATE TRIGGER update_offers_updated_at
     BEFORE UPDATE ON public.offers
     FOR EACH ROW
