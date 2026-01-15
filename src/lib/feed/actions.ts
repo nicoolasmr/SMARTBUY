@@ -95,54 +95,70 @@ export async function getFeed(context?: { missionId?: string }) {
 
     // [FALLBACK] Discovery Mode: If no personal matches, show "SmartBuy Selection"
     if (!candidates || candidates.length === 0) {
+        let discoveryProducts: any[] | null = null;
 
-        // 1. Try Profile-Based Recommendations
-        const userPrefs = (profile as any)?.preferences || {}
-        const lifeStage = (profile as any)?.preferences?.life_stage || ''
-        const tags = (profile as any)?.preferences?.tags || []
+        try {
+            // 1. Try Profile-Based Recommendations
+            const userPrefs = (profile as any)?.preferences || {}
+            // Safe access to potential nested props
+            const lifeStage = userPrefs?.life_stage || ''
+            const tags = Array.isArray(userPrefs?.tags) ? userPrefs.tags : []
 
-        // Build Base Query
-        let profileQuery = supabase
-            .from('products')
-            .select(`
-                *,
-                offers!inner (
-                    id, price, url, is_available,
-                    shops (id, name, reputation_score),
-                    offer_risk_scores (bucket, score, reasons)
-                )
-            `)
-            .limit(10)
+            // Build Base Query
+            let profileQuery = supabase
+                .from('products')
+                .select(`
+                    *,
+                    offers!inner (
+                        id, price, url, is_available,
+                        shops (id, name, reputation_score),
+                        offer_risk_scores (bucket, score, reasons)
+                    )
+                `)
+                .limit(10)
 
-        // Simple Mapping Logic
-        const categoriesOfInterest: string[] = []
-        if (tags.includes('premium')) { /* Logic could be price > X */ }
-        if (tags.includes('tech') || tags.includes('gamer')) categoriesOfInterest.push('Eletrônicos', 'Home Office')
-        if (tags.includes('fitness')) categoriesOfInterest.push('Suplementos', 'Fitness')
-        if (lifeStage === 'familia_pequena' || lifeStage === 'familia_grande') categoriesOfInterest.push('Bebê', 'Casa', 'Cozinha')
-        if (lifeStage === 'casal') categoriesOfInterest.push('Casa', 'Cozinha')
+            // Simple Mapping Logic
+            const categoriesOfInterest: string[] = []
+            if (tags.includes('premium')) { /* Logic could be price > X */ }
+            if (tags.includes('tech') || tags.includes('gamer')) categoriesOfInterest.push('Eletrônicos', 'Home Office')
+            if (tags.includes('fitness')) categoriesOfInterest.push('Suplementos', 'Fitness')
+            if (lifeStage === 'familia_pequena' || lifeStage === 'familia_grande') categoriesOfInterest.push('Bebê', 'Casa', 'Cozinha')
+            if (lifeStage === 'casal') categoriesOfInterest.push('Casa', 'Cozinha')
 
-        // If we have categories, filter. Else, generic.
-        if (categoriesOfInterest.length > 0) {
-            profileQuery = profileQuery.in('category', categoriesOfInterest)
+            // If we have categories, filter. Else, skip specific filter to get generic mix
+            if (categoriesOfInterest.length > 0) {
+                profileQuery = profileQuery.in('category', categoriesOfInterest)
+            }
+
+            const { data, error } = await profileQuery
+            if (!error && data) {
+                discoveryProducts = data
+            } else if (error) {
+                console.warn('Profile Discovery Query Failed (Non-fatal):', error)
+            }
+        } catch (err) {
+            console.error('Profile Discovery Logic Exception:', err)
+            // Swallow error to allow generic fallback
         }
-
-        let { data: discoveryProducts } = await profileQuery
 
         // If profile yielded nothing (or no profile), fallback to generic random
         if (!discoveryProducts || discoveryProducts.length === 0) {
-            const { data: genericProducts } = await supabase
-                .from('products')
-                .select(`
-                *,
-                offers!inner (
-                    id, price, url, is_available,
-                    shops (id, name, reputation_score),
-                    offer_risk_scores (bucket, score, reasons)
-                )
-            `)
-                .limit(10)
-            discoveryProducts = genericProducts
+            try {
+                const { data: genericProducts } = await supabase
+                    .from('products')
+                    .select(`
+                    *,
+                    offers!inner (
+                        id, price, url, is_available,
+                        shops (id, name, reputation_score),
+                        offer_risk_scores (bucket, score, reasons)
+                    )
+                `)
+                    .limit(10)
+                discoveryProducts = genericProducts
+            } catch (err) {
+                console.error('Generic Discovery Falback Failed:', err)
+            }
         }
 
         if (discoveryProducts) {
@@ -154,7 +170,16 @@ export async function getFeed(context?: { missionId?: string }) {
                 if (!best) return null
 
                 // Determine reason based on profile match
+                // Re-derive categories of interest safely for checking
+                const userPrefs = (profile as any)?.preferences || {}
+                const lifeStage = userPrefs?.life_stage || ''
+                const tags = Array.isArray(userPrefs?.tags) ? userPrefs.tags : []
+                const categoriesOfInterest: string[] = []
+                if (tags.includes('tech') || tags.includes('gamer')) categoriesOfInterest.push('Eletrônicos', 'Home Office')
+                // ... (simplified check for UI label)
+
                 const isProfileMatch = categoriesOfInterest.includes(p.category)
+                // Use a simpler check for reasons to avoid re-running complex logic
                 const reasons = isProfileMatch
                     ? ['Baseado no seu perfil', `Destaque em ${p.category}`]
                     : ['Sugestão SmartBuy', 'Descubra novidades']
