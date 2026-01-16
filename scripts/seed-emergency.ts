@@ -126,7 +126,15 @@ async function seed() {
     // 3. Create Offers
     if (!createdProducts || !createdShops) return;
 
-    const offers: any[] = []
+    // Define Offer Type for insertions
+    type OfferInsert = {
+        product_id: string
+        shop_id: string
+        price: number
+        url: string
+        is_available: boolean
+    }
+    const offers: OfferInsert[] = []
     const shopAmazon = createdShops.find(s => s.name === 'Amazon')!
     const shopML = createdShops.find(s => s.name === 'Mercado Livre')!
 

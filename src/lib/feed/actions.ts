@@ -54,6 +54,34 @@ type RPCFeedCandidate = {
     risk_data?: FeedOffer['offer_risk_scores']
 }
 
+// Type definitions to replace 'any'
+type UserPreferences = {
+    life_stage?: string
+    tags?: string[]
+}
+
+type DiscoveryProfile = {
+    preferences?: UserPreferences
+    budget_per_mission?: number
+}
+
+type DiscoveryProduct = {
+    id: string
+    name: string
+    brand: string
+    ean_normalized: string
+    category: string
+    attributes: Record<string, unknown>
+    offers: {
+        id: string
+        price: number
+        url: string
+        is_available: boolean
+        shops: { id: string; name: string; reputation_score: number }
+        offer_risk_scores: { bucket: 'A' | 'B' | 'C'; score: number; reasons: string[] }[]
+    }[]
+}
+
 
 import { track } from '@/lib/analytics/track'
 
@@ -77,7 +105,7 @@ export async function getFeed(context?: { missionId?: string }) {
             : Promise.resolve({ data: [] })
     ])
 
-    const profile = profileRes.data || {}
+    const profile = (profileRes.data || {}) as DiscoveryProfile
     const homeListItems = homeListRes.data || []
     const missionWishIds = (missionItemsRes.data || []).map((i) => i.wish_id)
 
@@ -86,20 +114,20 @@ export async function getFeed(context?: { missionId?: string }) {
 
     if (error) {
         console.error('Feed RPC Error:', error)
-        // Fallback or empty? Empty for now, safety.
-        return { data: [] }
+        // [FIX] Do not return early. Allow Fallback to Discovery Mode.
+        // return { data: [] }
     }
 
-    let feedItems: FeedItem[] = []
+    const feedItems: FeedItem[] = []
     const seenProductIds = new Set<string>()
 
     // [FALLBACK] Discovery Mode: If no personal matches, show "SmartBuy Selection"
     if (!candidates || candidates.length === 0) {
-        let discoveryProducts: any[] | null = null;
+        let discoveryProducts: DiscoveryProduct[] | null = null;
 
         try {
             // 1. Try Profile-Based Recommendations
-            const userPrefs = (profile as any)?.preferences || {}
+            const userPrefs = profile.preferences || {}
             // Safe access to potential nested props
             const lifeStage = userPrefs?.life_stage || ''
             const tags = Array.isArray(userPrefs?.tags) ? userPrefs.tags : []
@@ -132,7 +160,8 @@ export async function getFeed(context?: { missionId?: string }) {
 
             const { data, error } = await profileQuery
             if (!error && data) {
-                discoveryProducts = data
+                // Cast logic safe here due to strict select
+                discoveryProducts = data as unknown as DiscoveryProduct[]
             } else if (error) {
                 console.warn('Profile Discovery Query Failed (Non-fatal):', error)
             }
@@ -155,24 +184,24 @@ export async function getFeed(context?: { missionId?: string }) {
                     )
                 `)
                     .limit(10)
-                discoveryProducts = genericProducts
+                discoveryProducts = genericProducts as unknown as DiscoveryProduct[]
             } catch (err) {
                 console.error('Generic Discovery Falback Failed:', err)
             }
         }
 
         if (discoveryProducts) {
-            const discoveryItems: FeedItem[] = discoveryProducts.map((p: any) => {
+            const discoveryItems: FeedItem[] = discoveryProducts.map((p) => {
                 // Find best offer (cheapest)
-                const sortedOffers = (p.offers || []).sort((a: any, b: any) => a.price - b.price)
+                const sortedOffers = (p.offers || []).sort((a, b) => a.price - b.price)
                 const best = sortedOffers[0]
 
                 if (!best) return null
 
                 // Determine reason based on profile match
                 // Re-derive categories of interest safely for checking
-                const userPrefs = (profile as any)?.preferences || {}
-                const lifeStage = userPrefs?.life_stage || ''
+                const userPrefs = profile.preferences || {}
+                // Remove unused lifeStage if not needed here, or use simple check
                 const tags = Array.isArray(userPrefs?.tags) ? userPrefs.tags : []
                 const categoriesOfInterest: string[] = []
                 if (tags.includes('tech') || tags.includes('gamer')) categoriesOfInterest.push('Eletrônicos', 'Home Office')

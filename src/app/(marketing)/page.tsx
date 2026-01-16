@@ -78,7 +78,7 @@ export default function MarketingPage() {
                             </ul>
                         </div>
                         <div className="p-8 bg-muted rounded-xl flex items-center justify-center text-muted-foreground text-sm font-mono border border-dashed">
-                            [Interface do Assistente: "Analisando 45 opções... Filtrando 3 melhores escolhas para seu perfil."]
+                            [Interface do Assistente: &quot;Analisando 45 opções... Filtrando 3 melhores escolhas para seu perfil.&quot;]
                         </div>
                     </div>
                 </section>
@@ -162,7 +162,7 @@ export default function MarketingPage() {
                             </h3>
                             <ul className="space-y-2 text-sm text-foreground/80">
                                 <li>• Quer ver todas as opções do mundo.</li>
-                                <li>• Busca apenas a "promoção do dia" sem contexto.</li>
+                                <li>• Busca apenas a &quot;promoção do dia&quot; sem contexto.</li>
                                 <li>• Gosta de passar horas comparando fichas técnicas.</li>
                             </ul>
                         </div>

@@ -1,5 +1,5 @@
 -- Create alerts table
-CREATE TABLE public.alerts (
+CREATE TABLE IF NOT EXISTS public.alerts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     household_id UUID NOT NULL REFERENCES public.households(id) ON DELETE CASCADE,
     wish_id UUID REFERENCES public.wishes(id) ON DELETE CASCADE,
@@ -13,7 +13,7 @@ CREATE TABLE public.alerts (
 );
 
 -- Create alert_events table
-CREATE TABLE public.alert_events (
+CREATE TABLE IF NOT EXISTS public.alert_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     alert_id UUID NOT NULL REFERENCES public.alerts(id) ON DELETE CASCADE,
     offer_id UUID REFERENCES public.offers(id) ON DELETE SET NULL,
@@ -26,13 +26,14 @@ ALTER TABLE public.alerts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.alert_events ENABLE ROW LEVEL SECURITY;
 
 -- Indexes
-CREATE INDEX idx_alerts_household_id ON public.alerts(household_id);
-CREATE INDEX idx_alerts_is_active ON public.alerts(is_active);
-CREATE INDEX idx_alert_events_alert_id ON public.alert_events(alert_id);
+CREATE INDEX IF NOT EXISTS idx_alerts_household_id ON public.alerts(household_id);
+CREATE INDEX IF NOT EXISTS idx_alerts_is_active ON public.alerts(is_active);
+CREATE INDEX IF NOT EXISTS idx_alert_events_alert_id ON public.alert_events(alert_id);
 
 -- RLS Policies
 
 -- Alerts: Users can manage their own household's alerts
+DROP POLICY IF EXISTS "Users can manage alerts of their households" ON public.alerts;
 CREATE POLICY "Users can manage alerts of their households" ON public.alerts
     FOR ALL
     USING (
@@ -44,6 +45,7 @@ CREATE POLICY "Users can manage alerts of their households" ON public.alerts
     );
 
 -- Alert Events: Users can see events for their alerts
+DROP POLICY IF EXISTS "Users can see events for their alerts" ON public.alert_events;
 CREATE POLICY "Users can see events for their alerts" ON public.alert_events
     FOR SELECT
     USING (
@@ -61,6 +63,7 @@ CREATE POLICY "Users can see events for their alerts" ON public.alert_events
 -- We do this by NOT creating a FOR INSERT policy for authenticated users.
 
 -- Triggers for updated_at
+DROP TRIGGER IF EXISTS update_alerts_updated_at ON public.alerts;
 CREATE TRIGGER update_alerts_updated_at
     BEFORE UPDATE ON public.alerts
     FOR EACH ROW

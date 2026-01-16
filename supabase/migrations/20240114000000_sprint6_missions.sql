@@ -1,9 +1,10 @@
 -- Create missions table
 -- [SELF-HEALING] Cleanup
-DROP TABLE IF EXISTS public.mission_items CASCADE;
-DROP TABLE IF EXISTS public.missions CASCADE;
+-- Removed destructive DROP TABLE logic for production safety
+-- DROP TABLE IF EXISTS public.mission_items CASCADE;
+-- DROP TABLE IF EXISTS public.missions CASCADE;
 
-CREATE TABLE public.missions (
+CREATE TABLE IF NOT EXISTS public.missions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     household_id UUID NOT NULL REFERENCES public.households(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
@@ -15,7 +16,7 @@ CREATE TABLE public.missions (
 );
 
 -- Create mission_items table
-CREATE TABLE public.mission_items (
+CREATE TABLE IF NOT EXISTS public.mission_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     mission_id UUID NOT NULL REFERENCES public.missions(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
@@ -32,9 +33,9 @@ ALTER TABLE public.missions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.mission_items ENABLE ROW LEVEL SECURITY;
 
 -- Indexes
-CREATE INDEX idx_missions_household_id ON public.missions(household_id);
-CREATE INDEX idx_missions_is_active ON public.missions(is_active);
-CREATE INDEX idx_mission_items_mission_id ON public.mission_items(mission_id);
+CREATE INDEX IF NOT EXISTS idx_missions_household_id ON public.missions(household_id);
+CREATE INDEX IF NOT EXISTS idx_missions_is_active ON public.missions(is_active);
+CREATE INDEX IF NOT EXISTS idx_mission_items_mission_id ON public.mission_items(mission_id);
 
 -- RLS Policies
 
@@ -44,6 +45,7 @@ CREATE INDEX idx_mission_items_mission_id ON public.mission_items(mission_id);
 -- Ideally, RLS should enforce `household_id` matches the user's membership.
 -- For Simplicity in MVP (and following previous patterns), we check if the user is a member of the household.
 
+DROP POLICY IF EXISTS "Users can manage missions of their households" ON public.missions;
 CREATE POLICY "Users can manage missions of their households" ON public.missions
     FOR ALL
     USING (
@@ -54,6 +56,7 @@ CREATE POLICY "Users can manage missions of their households" ON public.missions
         )
     );
 
+DROP POLICY IF EXISTS "Users can manage items of their missions" ON public.mission_items;
 CREATE POLICY "Users can manage items of their missions" ON public.mission_items
     FOR ALL
     USING (
@@ -66,11 +69,13 @@ CREATE POLICY "Users can manage items of their missions" ON public.mission_items
     );
 
 -- Triggers for updated_at
+DROP TRIGGER IF EXISTS update_missions_updated_at ON public.missions;
 CREATE TRIGGER update_missions_updated_at
     BEFORE UPDATE ON public.missions
     FOR EACH ROW
     EXECUTE PROCEDURE update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_mission_items_updated_at ON public.mission_items;
 CREATE TRIGGER update_mission_items_updated_at
     BEFORE UPDATE ON public.mission_items
     FOR EACH ROW
