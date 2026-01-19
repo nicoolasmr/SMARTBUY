@@ -1,5 +1,5 @@
 -- Create household_profiles table
-CREATE TABLE public.household_profiles (
+CREATE TABLE IF NOT EXISTS public.household_profiles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     household_id UUID NOT NULL REFERENCES public.households(id) ON DELETE CASCADE,
     budget_monthly NUMERIC,
@@ -14,7 +14,7 @@ CREATE TABLE public.household_profiles (
 );
 
 -- Create wishes table
-CREATE TABLE public.wishes (
+CREATE TABLE IF NOT EXISTS public.wishes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     household_id UUID NOT NULL REFERENCES public.households(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
@@ -32,12 +32,13 @@ ALTER TABLE public.household_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.wishes ENABLE ROW LEVEL SECURITY;
 
 -- Indexes
-CREATE INDEX idx_household_profiles_household_id ON public.household_profiles(household_id);
-CREATE INDEX idx_wishes_household_id ON public.wishes(household_id);
+CREATE INDEX IF NOT EXISTS idx_household_profiles_household_id ON public.household_profiles(household_id);
+CREATE INDEX IF NOT EXISTS idx_wishes_household_id ON public.wishes(household_id);
 
 -- RLS Policies for household_profiles
 
 -- Users can view their own household profile
+DROP POLICY IF EXISTS "Users can view their own household profile" ON public.household_profiles;
 CREATE POLICY "Users can view their own household profile" ON public.household_profiles
     FOR SELECT
     USING (
@@ -47,6 +48,7 @@ CREATE POLICY "Users can view their own household profile" ON public.household_p
     );
 
 -- Users can update their own household profile
+DROP POLICY IF EXISTS "Users can update their own household profile" ON public.household_profiles;
 CREATE POLICY "Users can update their own household profile" ON public.household_profiles
     FOR UPDATE
     USING (
@@ -55,7 +57,8 @@ CREATE POLICY "Users can update their own household profile" ON public.household
         )
     );
 
--- Users can insert their own household profile (usually automated, but allowed just in case)
+-- Users can insert their own household profile
+DROP POLICY IF EXISTS "Users can insert their own household profile" ON public.household_profiles;
 CREATE POLICY "Users can insert their own household profile" ON public.household_profiles
     FOR INSERT
     WITH CHECK (
@@ -66,7 +69,8 @@ CREATE POLICY "Users can insert their own household profile" ON public.household
 
 -- RLS Policies for wishes
 
--- Users can view their own household's wishes
+-- Users can view their own household wishes
+DROP POLICY IF EXISTS "Users can view their own household wishes" ON public.wishes;
 CREATE POLICY "Users can view their own household wishes" ON public.wishes
     FOR SELECT
     USING (
@@ -76,6 +80,7 @@ CREATE POLICY "Users can view their own household wishes" ON public.wishes
     );
 
 -- Users can create wishes for their own household
+DROP POLICY IF EXISTS "Users can create wishes for their own household" ON public.wishes;
 CREATE POLICY "Users can create wishes for their own household" ON public.wishes
     FOR INSERT
     WITH CHECK (
@@ -85,6 +90,7 @@ CREATE POLICY "Users can create wishes for their own household" ON public.wishes
     );
 
 -- Users can update their own household's wishes
+DROP POLICY IF EXISTS "Users can update their own household wishes" ON public.wishes;
 CREATE POLICY "Users can update their own household wishes" ON public.wishes
     FOR UPDATE
     USING (
@@ -94,6 +100,7 @@ CREATE POLICY "Users can update their own household wishes" ON public.wishes
     );
 
 -- Users can delete their own household's wishes
+DROP POLICY IF EXISTS "Users can delete their own household wishes" ON public.wishes;
 CREATE POLICY "Users can delete their own household wishes" ON public.wishes
     FOR DELETE
     USING (
@@ -101,11 +108,6 @@ CREATE POLICY "Users can delete their own household wishes" ON public.wishes
             SELECT active_household_id FROM public.profiles WHERE id = auth.uid()
         )
     );
-
--- Ops access (simplified for now, assumes 'admin' role in app_metadata or profiles check logic if needed globally, 
--- but sticking to the request "Ops/Admin: SELECT ALL" via policy usually requires a separate role check. 
--- For Sprint 3, we'll keep it simple: if you are part of the household, you see it. 
--- If we need global ops view, we can add a bypass policy later or rely on service role key which bypasses RLS).
 
 -- Trigger to update updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -116,11 +118,13 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+DROP TRIGGER IF EXISTS update_household_profiles_updated_at ON public.household_profiles;
 CREATE TRIGGER update_household_profiles_updated_at
     BEFORE UPDATE ON public.household_profiles
     FOR EACH ROW
     EXECUTE PROCEDURE update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_wishes_updated_at ON public.wishes;
 CREATE TRIGGER update_wishes_updated_at
     BEFORE UPDATE ON public.wishes
     FOR EACH ROW
