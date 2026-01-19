@@ -42,7 +42,7 @@ export default async function PurchasesPage() {
 
     async function upload(purchaseId: string, formData: FormData) {
         'use server'
-        await uploadReceipt(purchaseId, formData)
+        await uploadReceipt(purchaseId)
     }
 
     const hasClicks = recentClicks && recentClicks.length > 0;
