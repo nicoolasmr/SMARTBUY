@@ -40,7 +40,41 @@ export async function getProduct(id: string) {
 
     if (offerError) console.error('Error fetching offers', offerError)
 
-    return { data: { product, offers: offers || [] } }
+    // Parallel Fetching for Rich PDP
+    const [priceHistoryRes, reviewsRes, relatedRes] = await Promise.all([
+        supabase
+            .from('offer_price_history')
+            .select('*')
+            .in('offer_id', (offers || []).map(o => o.id)) // Get history for these offers
+            .order('captured_at', { ascending: true })
+            .limit(50),
+
+        supabase
+            .from('reviews')
+            .select('*')
+            .eq('product_id', id)
+            .order('created_at', { ascending: false })
+            .limit(5),
+
+        product?.category ?
+            supabase
+                .from('products')
+                .select('*, offers!inner(price, shops(name))')
+                .eq('category', product.category)
+                .neq('id', id)
+                .limit(4)
+            : Promise.resolve({ data: [] })
+    ])
+
+    return {
+        data: {
+            product,
+            offers: offers || [],
+            priceHistory: priceHistoryRes.data || [],
+            reviews: reviewsRes.data || [],
+            relatedProducts: relatedRes.data || []
+        }
+    }
 }
 
 export async function searchProducts(query: string) {
