@@ -499,6 +499,47 @@ async function seed() {
         }
     }
 
+    // 3. Populate Home List (Smart Seed)
+    console.log('📝 Populating Home List for demo households...')
+
+    // We need a household to attach to. In this script we don't have user context easily.
+    // However, if we want verify UI we need to attach to the "active user's" household.
+    // Since this script runs as Admin, maybe we can fetch the most recent household created?
+    // Or just skip because the user needs to add it manually to *their* list?
+    // BETTER: Use the "Emergency Seed" logic? No, let's just create a seed-list script.
+
+    // Actually, inserting into home_list_items requires a household_id. 
+    // We can fetch ANY household to prove it works, but for the specific USER it might not show up if they aren't that household.
+    // Strategy: We will skip auto-seeding HomeList here to avoid guessing the user's ID.
+    // instead, rely on the table existing so the UI works (Empty State is better than Crash).
+
+    // BUT, to be nice, let's try to find a profile linked to the first user and seed it.
+    const { data: profiles } = await supabase.from('profiles').select('active_household_id').limit(1)
+    if (profiles && profiles.length > 0 && profiles[0].active_household_id) {
+        const hhId = profiles[0].active_household_id
+
+        // Add "Omo" equivalent or Coffee
+        const pCoffee = PRODUCTS.find(p => p.name.includes('Nespresso'))
+        const pSoap = PRODUCTS.find(p => p.name.includes('Pampers')) // Or soap if we had it
+
+        const listItems = []
+        if (pCoffee) {
+            // Fetch actual ID from DB
+            const { data: dbProd } = await supabase.from('products').select('id').eq('name', pCoffee.name).single()
+            if (dbProd) listItems.push({
+                household_id: hhId,
+                product_id: dbProd.id,
+                frequency_days: 15,
+                next_suggested_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() // Overdue! (Yesterday)
+            })
+        }
+
+        if (listItems.length > 0) {
+            await supabase.from('home_list_items').insert(listItems)
+            console.log(`✅ Seeded ${listItems.length} items to Home List for Household ${hhId}`)
+        }
+    }
+
     console.log('✅ Super Seed Complete!')
 }
 

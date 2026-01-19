@@ -8,8 +8,9 @@ import { Separator } from "@/components/ui/separator";
 import { notFound } from "next/navigation";
 // import Link from "next/link";
 
-export default async function ProductPage({ params }: { params: { productId: string } }) {
-    const { data, error } = await getProduct(params.productId);
+export default async function ProductPage({ params }: { params: Promise<{ productId: string }> }) {
+    const { productId } = await params;
+    const { data, error } = await getProduct(productId);
 
     if (error || !data || !data.product) {
         notFound();
