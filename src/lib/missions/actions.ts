@@ -52,7 +52,7 @@ export async function getMission(id: string) {
 
     if (mError) return { error: mError.message }
 
-    const { data: items, error: iError } = await supabase
+    const { data: items } = await supabase
         .from('mission_items')
         .select('*, wishes(title, min_price, max_price)')
         .eq('mission_id', id)

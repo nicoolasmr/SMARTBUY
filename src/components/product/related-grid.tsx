@@ -4,7 +4,13 @@ import { PriceTag } from "@/components/ui/price-tag"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 
-export function RelatedGrid({ products }: { products: any[] }) {
+type RelatedProduct = {
+    id: string;
+    name: string;
+    offers?: { price: number }[];
+}
+
+export function RelatedGrid({ products }: { products: RelatedProduct[] }) {
     if (!products || products.length === 0) return null
 
     return (

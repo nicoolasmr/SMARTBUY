@@ -520,7 +520,7 @@ async function seed() {
 
         // Add "Omo" equivalent or Coffee
         const pCoffee = PRODUCTS.find(p => p.name.includes('Nespresso'))
-        const pSoap = PRODUCTS.find(p => p.name.includes('Pampers')) // Or soap if we had it
+
 
         const listItems = []
         if (pCoffee) {

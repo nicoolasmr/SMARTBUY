@@ -35,7 +35,7 @@ export async function declarePurchase(formData: FormData) {
     return { data: purchase }
 }
 
-export async function uploadReceipt(purchaseId: string, _formData: FormData) {
+export async function uploadReceipt(purchaseId: string) {
     const supabase = await createClient()
     const householdId = await getActiveHouseholdId(supabase)
     if (!householdId) return { error: 'Unauthorized' }

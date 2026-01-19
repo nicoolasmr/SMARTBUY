@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 
-export async function GET(request: Request) {
+export async function GET() {
     const supabase = createSupabaseAdmin()
 
     // 1. Seed Shops

@@ -29,8 +29,10 @@ export default async function ProductPage({ params }: { params: Promise<{ produc
         chartHistory = Array.from({ length: 15 }).map((_, i) => {
             const date = new Date(today)
             date.setDate(date.getDate() - (14 - i) * 2)
-            // Random variation around current price
-            const variation = (Math.random() - 0.5) * (bestOffer.price * 0.2)
+            // Pseudo-random based on date to avoid purity error
+            const seed = date.getTime();
+            const pseudoRandom = (Math.sin(seed) + 1) / 2;
+            const variation = (pseudoRandom - 0.5) * (bestOffer.price * 0.2)
             return {
                 captured_at: date.toISOString(),
                 price: Math.max(bestOffer.price + variation, bestOffer.price * 0.5)

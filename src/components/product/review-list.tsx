@@ -2,7 +2,14 @@
 import { Card } from "@/components/ui/card"
 import { Star } from "lucide-react"
 
-export function ReviewList({ reviews }: { reviews: any[] }) {
+type Review = {
+    id: string;
+    rating: number;
+    comment: string;
+    created_at: string;
+}
+
+export function ReviewList({ reviews }: { reviews: Review[] }) {
     if (!reviews || reviews.length === 0) {
         return (
             <div className="space-y-4">

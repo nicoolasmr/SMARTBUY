@@ -86,7 +86,7 @@ export async function upsertProduct(formData: FormData) {
         revalidatePath('/ops/catalog')
         return { data }
 
-    } catch (_e) {
+    } catch {
         return { error: 'Unauthorized or Error' }
     }
 }
@@ -132,7 +132,7 @@ export async function upsertOffer(formData: FormData) {
         revalidatePath('/ops/offers')
         return { success: true }
 
-    } catch (_e) {
+    } catch {
         return { error: 'Unauthorized' }
     }
 }
@@ -147,7 +147,9 @@ export async function createShop(name: string, domain?: string) {
         await logOpsAction(supabase, user.id, 'CREATE_SHOP', 'shop', data.id, { name, domain })
 
         return { success: true }
-    } catch (_e) { return { error: 'Unauthorized' } }
+    } catch {
+        return { error: 'Unauthorized' }
+    }
 }
 
 export async function getShops() {

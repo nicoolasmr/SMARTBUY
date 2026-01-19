@@ -3,7 +3,12 @@
 
 import { Card } from "@/components/ui/card"
 
-export function PriceHistoryChart({ history }: { history: any[] }) {
+type HistoryPoint = {
+    price: number;
+    captured_at: string;
+}
+
+export function PriceHistoryChart({ history }: { history: HistoryPoint[] }) {
     if (!history || history.length === 0) return null
 
     // Simple visualization: Find Min/Max to scale

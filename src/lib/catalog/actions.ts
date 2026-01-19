@@ -1,17 +1,10 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { z } from 'zod'
 
 // --- Schemas ---
 
-const _productSchema = z.object({
-    name: z.string().min(1),
-    brand: z.string().optional(),
-    ean_normalized: z.string().min(8),
-    category: z.string().optional(),
-    attributes: z.record(z.string(), z.any()).optional(),
-})
+// Schema removed (unused)
 
 // --- Actions ---
 
