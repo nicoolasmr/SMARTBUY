@@ -25,7 +25,7 @@ export function RelatedGrid({ products }: { products: RelatedProduct[] }) {
                                 📦
                             </div>
                             <div className="flex-1">
-                                <h4 className="font-semibold text-sm line-clamp-2 mb-1">{p.name}</h4>
+                                <h4 className="font-semibold text-sm leading-tight mb-2" title={p.name}>{p.name}</h4>
                                 {bestOffer && (
                                     <PriceTag price={bestOffer.price} size="sm" />
                                 )}
