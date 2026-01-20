@@ -41,9 +41,9 @@ export function RelatedGrid({ products }: { products: RelatedProduct[] }) {
                                     {bestOffer ? (
                                         <div className="flex flex-col">
                                             <span className="text-xs text-gray-400 font-normal">a partir de</span>
-                                            <PriceTag price={bestOffer.price} size="lg" className="text-green-600" />
+                                            <PriceTag price={bestOffer.price} size="md" className="text-green-600" />
                                             {bestOffer.price > 100 && (
-                                                <span className="text-[10px] text-green-600 font-medium">
+                                                <span className="text-[10px] text-green-600 font-medium truncate">
                                                     em até 10x sem juros
                                                 </span>
                                             )}
