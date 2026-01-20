@@ -20,18 +20,45 @@ export function RelatedGrid({ products }: { products: RelatedProduct[] }) {
                 {products.map((p) => {
                     const bestOffer = p.offers?.[0]
                     return (
-                        <Card key={p.id} className="p-4 flex flex-col gap-2 hover:shadow-md transition bg-muted/20">
-                            <div className="aspect-square bg-background rounded flex items-center justify-center text-2xl">
+                        <Card key={p.id} className="p-4 flex flex-col gap-3 hover:shadow-md transition bg-white border border-gray-100 h-full">
+                            {/* Image Placeholder */}
+                            <div className="aspect-square bg-gray-50 rounded-lg flex items-center justify-center text-3xl mb-1">
                                 📦
                             </div>
-                            <div className="flex-1">
-                                <h4 className="font-semibold text-sm leading-tight mb-2" title={p.name}>{p.name}</h4>
-                                {bestOffer && (
-                                    <PriceTag price={bestOffer.price} size="sm" />
-                                )}
+
+                            {/* Content */}
+                            <div className="flex-1 flex flex-col gap-2">
+                                {/* Title: Fixed height for 3 lines to ensure alignment */}
+                                <h4
+                                    className="font-medium text-sm leading-tight line-clamp-3 text-gray-700 h-[3.8rem]"
+                                    title={p.name}
+                                >
+                                    {p.name}
+                                </h4>
+
+                                {/* Price Section: Pushed to bottom of content area */}
+                                <div className="mt-auto pt-1">
+                                    {bestOffer ? (
+                                        <div className="flex flex-col">
+                                            <span className="text-xs text-gray-400 font-normal">a partir de</span>
+                                            <PriceTag price={bestOffer.price} size="lg" className="text-green-600" />
+                                            {bestOffer.price > 100 && (
+                                                <span className="text-[10px] text-green-600 font-medium">
+                                                    em até 10x sem juros
+                                                </span>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="h-10 flex items-center text-xs text-gray-400">
+                                            Indisponível
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                            <Button size="sm" variant="outline" className="w-full" asChild>
-                                <Link href={`/app/product/${p.id}`}>Ver</Link>
+
+                            {/* CTA */}
+                            <Button size="sm" variant="outline" className="w-full mt-2 font-medium" asChild>
+                                <Link href={`/app/product/${p.id}`}>Ver Oferta</Link>
                             </Button>
                         </Card>
                     )
